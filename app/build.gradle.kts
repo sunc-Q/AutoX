@@ -61,8 +61,22 @@ android {
             isUniversalApk = false
         }
     }
+    val localSigning =
+        if (project.hasProperty("SIGNING_STORE_FILE") && project.hasProperty("SIGNING_STORE_PASSWORD")) {
+            signingConfigs.create("localRelease") {
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                storeFile = file(project.property("SIGNING_STORE_FILE") as String)
+                storePassword = project.property("SIGNING_STORE_PASSWORD") as String
+                keyAlias = project.property("SIGNING_KEY_ALIAS") as String
+                keyPassword = project.property("SIGNING_KEY_PASSWORD") as String
+            }
+        } else null
     val signing =
-        if (System.getenv("CI") == "true" && !System.getenv("KEYSTORE_BASE64").isNullOrEmpty()) {
+        if (localSigning != null) {
+            localSigning
+        } else if (System.getenv("CI") == "true" && !System.getenv("KEYSTORE_BASE64").isNullOrEmpty()) {
             val file = File.createTempFile("key", "jks")
             val bytes = Base64.getDecoder().decode(System.getenv("KEYSTORE_BASE64"))
             file.writeBytes(bytes)

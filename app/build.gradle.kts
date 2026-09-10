@@ -122,6 +122,13 @@ android {
             buildConfigField("String", "CHANNEL", "\"v7\"")
             manifestPlaceholders.putAll(mapOf("appName" to "Autox.js v7"))
         }
+        create("suncV7") {
+            applicationIdSuffix = ".suncV7"
+            versionCode = 1000
+            versionName = "1.0.0"
+            buildConfigField("String", "CHANNEL", "\"suncV7\"")
+            manifestPlaceholders.putAll(mapOf("appName" to "suncV7"))
+        }
     }
     applicationVariants.all {
         val variant = this

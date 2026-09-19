@@ -196,7 +196,7 @@ function renderScripts(d) {
     row.className = "item";
     const full = joinPath(d.path, it.name);
     row.innerHTML = `<div class="name"><span class="ico dir">📁</span><span class="dir">${escapeHtml(it.name)}</span></div>
-      <div class="ops"><button class="ghost" onclick="enterDir('${escapeAttr(full)}')">进入</button></div>`;
+      <div class="ops"><button class="ghost" onclick="event.stopPropagation();enterDir('${escapeAttr(full)}')">进入</button></div>`;
     row.onclick = () => enterDir(full);
     return row;
   });
@@ -206,7 +206,7 @@ function renderScripts(d) {
     const full = joinPath(d.path, it.name);
     row.innerHTML = `<div class="name"><span class="ico">📄</span>${escapeHtml(it.name)}</div>
       <div class="size">${fmtSize(it.size)}</div>
-      <div class="ops"><button onclick="runScript('${escapeAttr(full)}')">▶ 运行</button></div>`;
+      <div class="ops"><button onclick="event.stopPropagation();runScript('${escapeAttr(full)}')">▶ 运行</button></div>`;
     row.onclick = () => runScript(full);
     return row;
   });
@@ -226,7 +226,7 @@ function renderTasks(d) {
     const view = engineIdToView[t.id];
     const canStop = !!view;
     row.innerHTML = `<div class="run"><span class="sp"></span><div><div>${escapeHtml(t.name)}</div><div class="p">${escapeHtml(t.path)}</div></div></div>
-      <button class="danger" ${canStop ? "" : "disabled"} onclick="stopScript('${escapeAttr(view || "")}')">停止</button>`;
+      <button class="danger" ${canStop ? "" : "disabled"} onclick="event.stopPropagation();stopScript('${escapeAttr(view || "")}')">停止</button>`;
     box.appendChild(row);
   });
 }

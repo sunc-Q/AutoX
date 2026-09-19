@@ -127,3 +127,9 @@ tasks.register("buildJsModule") {
     group = "build"
     dependsOn("buildV6Api", "buildV7Api")
 }
+
+// v6/v7 modules 是运行时必需资产（init.js require __timers__.js 等），
+// 必须随构建生成，否则 APK 缺模块、任何脚本都报 "Module __timers__.js not found"。
+tasks.named("preBuild") {
+    dependsOn("buildJsModule")
+}

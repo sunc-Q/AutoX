@@ -100,7 +100,20 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
                 val path = data["path"].asString
                 val file = File(path)
                 if (file.exists() && file.isFile) {
-                    runScript(path, file.name, file.readText())
+                    // 直接在原路径运行：保持同目录依赖模块与工作目录，避免缓存复制破坏 require
+                    EngineController.runScript(file, object : BinderScriptListener {
+                        override fun onStart(taskInfo: TaskInfo) {
+                            mScriptExecutions[path] = taskInfo.id
+                        }
+
+                        override fun onSuccess(taskInfo: TaskInfo) {
+                            mScriptExecutions.remove(path)
+                        }
+
+                        override fun onException(taskInfo: TaskInfo, e: Throwable) {
+                            mScriptExecutions.remove(path)
+                        }
+                    })
                     toast("运行成功")
                 } else {
                     toast("run_path: 文件不存在: $path")

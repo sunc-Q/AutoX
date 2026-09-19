@@ -143,7 +143,9 @@ function onMsg(m) {
 
 function sendCmd(command, data) {
   if (!ws || ws.readyState !== WebSocket.OPEN || !handshaken) { logLine("[!] 未连接或未握手，命令丢弃"); return; }
-  ws.send(JSON.stringify({ type: "command", command: command, data: data || {} }));
+  // 命令帧格式：type=command，command 与参数都在 data 内（AutoX RootRouter 会把 data 传给子 Router）
+  const d = Object.assign({ command: command }, data || {});
+  ws.send(JSON.stringify({ type: "command", data: d }));
 }
 
 /* ================= 命令 ================= */

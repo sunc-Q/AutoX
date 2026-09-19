@@ -11,7 +11,7 @@
     --warn:#d29922; --dir:#58a6ff;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",monospace;padding:16px}
+  body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",monospace;padding:16px;padding-bottom:90px}
   .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
 
   /* 顶栏 */
@@ -38,30 +38,70 @@
   .pathbar .cur{flex:1;min-width:200px;font-size:12px;color:var(--dir);word-break:break-all}
 
   /* 脚本列表 */
-  .list{display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto}
-  .sec{font-size:11px;color:var(--dim);letter-spacing:.5px;padding:10px 4px 2px;font-weight:600}
-  .item{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;cursor:pointer}
+  .list{display:flex;flex-direction:column;gap:4px}
+  .list.scroll{max-height:360px;overflow-y:auto}
+  .sec{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);letter-spacing:.5px;padding:10px 4px 2px;font-weight:600;cursor:pointer;user-select:none}
+  .sec .arr{display:inline-block;transition:transform .15s}
+  .sec .arr.open{transform:rotate(90deg)}
+  .sec .spacer{flex:1}
+  .sec .sortbtn{font-size:11px;color:var(--dim);padding:2px 6px;background:transparent;border:1px solid var(--border);border-radius:4px;cursor:pointer}
+  .sec .sortbtn:hover{color:var(--text);border-color:var(--accent2)}
+  .item{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;cursor:pointer;position:relative}
   .item:hover{border-color:var(--accent2)}
   .item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .item .name .ico{margin-right:6px}
   .item .name .dir{color:var(--dir)}
   .item .size{color:var(--dim);font-size:11px;flex:none}
-  .item .ops{display:flex;gap:6px;flex:none}
+  .item .ops{display:flex;gap:6px;flex:none;align-items:center}
   .item button{padding:4px 10px;font-size:12px}
+  .item .iconbtn{background:transparent;border:1px solid var(--border);padding:3px 7px;font-size:12px}
   .hint{color:var(--dim);font-size:12px;padding:6px 4px}
+
+  /* 行内下拉菜单 */
+  .dd{position:absolute;right:8px;top:calc(100% - 2px);z-index:20;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:150px;padding:4px;display:none}
+  .dd.open{display:block}
+  .dd button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);border:none;border-radius:6px;padding:7px 10px;font-size:13px}
+  .dd button:hover{background:var(--accent2);color:#fff}
+  .dd button.del:hover{background:var(--danger)}
 
   /* 任务 */
   .task{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px}
-  .task .run{display:flex;align-items:center;gap:6px}
-  .task .run .sp{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+  .task .run{display:flex;align-items:center;gap:6px;min-width:0}
+  .task .run .sp{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);flex:none}
+  .task .run .sp.off{background:var(--dim);box-shadow:none}
   .task .p{color:var(--dim);font-size:11px;margin-top:2px;word-break:break-all}
-  .task button{padding:4px 10px;font-size:12px}
+  .task button{padding:4px 10px;font-size:12px;flex:none}
   .tasks-empty{color:var(--dim);font-size:12px;padding:6px 4px}
 
   /* 日志 */
   #log{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;color:var(--dim);height:150px;overflow-y:auto;white-space:pre-wrap}
   #log .t{color:var(--accent2)}
   #log .e{color:var(--danger)}
+
+  /* FAB */
+  .fab{position:fixed;right:20px;bottom:24px;width:54px;height:54px;border-radius:50%;background:var(--accent2);color:#fff;font-size:26px;line-height:54px;text-align:center;box-shadow:0 6px 18px rgba(31,111,235,.45);cursor:pointer;z-index:30;user-select:none;transition:transform .15s}
+  .fab:hover{filter:brightness(1.15)}
+  .fabmenu{position:fixed;right:24px;bottom:88px;z-index:31;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+  .fabmenu button{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:8px 16px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+  .fabmenu button:hover{border-color:var(--accent2)}
+  .hidden{display:none!important}
+
+  /* 模态 */
+  .mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;padding:16px;gap:12px}
+  .modal h3{font-size:15px;color:var(--text)}
+  .modal textarea{width:100%;min-height:280px;background:#0d1117;border:1px solid var(--border);border-radius:8px;color:var(--text);font:13px/1.5 ui-monospace,Menlo,monospace;padding:10px;resize:vertical}
+  .modal input[type=text],.modal input[type=number],.modal input[type=time],.modal input[type=date],.modal select{width:100%;background:#0d1117;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit}
+  .modal .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .modal .row label{font-size:12px;color:var(--dim);min-width:56px}
+  .modal .row input[type=text]{flex:1;min-width:120px}
+  .modal .row input[type=number],.modal .row input[type=time],.modal .row input[type=date]{flex:1;min-width:90px}
+  .modal .btns{display:flex;gap:8px;justify-content:flex-end}
+  .modal .days{display:flex;gap:4px;flex-wrap:wrap}
+  .modal .days span{border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:12px;cursor:pointer;color:var(--dim)}
+  .modal .days span.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .edbar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim)}
+  .edbar .path{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dir)}
 
   @media (max-width:600px){
     body{padding:8px}
@@ -88,13 +128,13 @@
   </div>
 
   <div class="panel">
-    <h2>脚本列表<span class="spacer"></span><span style="color:var(--dim);font-weight:400">点击文件运行 · 点击目录进入</span></h2>
-    <div class="list" id="scriptList"><div class="hint">连接后自动加载…</div></div>
+    <h2>脚本列表<span class="spacer"></span><span style="color:var(--dim);font-weight:400">点击文件运行</span></h2>
+    <div class="list scroll" id="scriptList"><div class="hint">连接后自动加载…</div></div>
   </div>
 
   <div class="panel">
-    <h2>运行中任务<span class="spacer"></span><button class="danger" onclick="stopAll()">停止全部</button></h2>
-    <div class="list" id="taskList"><div class="hint">暂无运行中的任务</div></div>
+    <h2>任务<span class="spacer"></span><button class="danger" onclick="stopAll()">停止全部</button></h2>
+    <div class="list" id="taskList"><div class="hint">暂无任务</div></div>
   </div>
 
   <div class="panel">
@@ -104,6 +144,30 @@
 
 </div>
 
+<!-- FAB 新建菜单（还原原 App FAB：新建文件/新建文件夹/导入文件/新建项目） -->
+<div class="fabmenu hidden" id="fabMenu">
+  <button onclick="uiNewFile()">📄 新建文件</button>
+  <button onclick="uiNewDir()">📁 新建文件夹</button>
+  <button onclick="uiUpload()">⬆ 导入文件</button>
+</div>
+<div class="fab" id="fab" onclick="toggleFab()">+</div>
+
+<!-- 上传文件（隐藏 input） -->
+<input type="file" id="fileInput" class="hidden" multiple>
+
+<!-- 通用表单模态 -->
+<div class="mask hidden" id="modalMask">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<!-- 编辑器模态 -->
+<div class="mask hidden" id="edMask">
+  <div class="modal">
+    <div class="edbar"><span class="path" id="edPath"></span><button class="ghost" onclick="edRun()">▶ 运行</button><button onclick="edSave()">保存</button><button class="ghost" onclick="closeEd()">关闭</button></div>
+    <textarea id="edText" spellcheck="false"></textarea>
+  </div>
+</div>
+
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -111,6 +175,12 @@ let ws = null, handshaken = false, reconnectTimer = null;
 let curPath = "";          // 当前浏览的目录（相对 root）
 let rootPath = "/";
 let engineIdToView = {};   // engineId -> viewId（用于停止）
+let sortCfg = {
+  dirs: { type: "name", asc: true },
+  files: { type: "name", asc: true }
+};
+let collapsed = { dirs: false, files: false };
+let edPath = null;
 
 /* ================= WS 连接与握手 ================= */
 function connect() {
@@ -129,7 +199,6 @@ function setConn(text, cls) { $("connDot").className = "dot " + (cls || ""); $("
 
 function onMsg(m) {
   if (m.type === "hello") {
-    // 服务端先发 hello，回握手响应（version 11090 → 服务端期待 data="ok"）
     ws.send(JSON.stringify({ type: "hello", data: "ok", version: "11090", message_id: "", debug: false }));
     handshaken = true;
     setConn("已连接 ✓", "ok");
@@ -141,22 +210,40 @@ function onMsg(m) {
   if (m.type === "log") { if (m.data && m.data.log) logLine(m.data.log); return; }
   if (m.type === "list_scripts" && m.data) renderScripts(m.data);
   else if (m.type === "tasks" && m.data) renderTasks(m.data);
+  else if (m.type === "timed_tasks" && m.data) renderTimedTasks(m.data);
+  else if (m.type === "read_file" && m.data) openEditor(m.data);
+  else if (m.type === "result" && m.data) { logLine("[✓] " + (m.data.ok ? "操作成功" : "操作失败")); refreshAll(); }
 }
 
 function sendCmd(command, data) {
   if (!ws || ws.readyState !== WebSocket.OPEN || !handshaken) { logLine("[!] 未连接或未握手，命令丢弃"); return; }
-  // 命令帧格式：type=command，command 与参数都在 data 内（AutoX RootRouter 会把 data 传给子 Router）
   const d = Object.assign({ command: command }, data || {});
   ws.send(JSON.stringify({ type: "command", data: d }));
 }
 
 /* ================= 命令 ================= */
-function refreshAll() { listScripts(); refreshTasks(); }
+function refreshAll() { listScripts(); refreshTasks(); refreshTimedTasks(); }
 function listScripts() { sendCmd("list_scripts", curPath ? { path: curPath } : {}); }
 function refreshTasks() { sendCmd("tasks"); }
+function refreshTimedTasks() { sendCmd("timed_tasks"); }
 function runScript(path) { sendCmd("run_path", { path: path }); logLine("[→] 运行: " + path); }
 function stopScript(viewId) { sendCmd("stop", { id: viewId }); logLine("[→] 停止: " + viewId); }
 function stopAll() { sendCmd("stopAll"); logLine("[→] 停止全部"); }
+function runLoop(path) { sendCmd("run_loop", { path: path, loopTimes: state.loopTimes || 3, interval: state.loopInterval || 1000 }); logLine("[→] 循环运行: " + path); }
+function renamePath(path) { sendCmd("rename", { path: path, newName: state.newName }); logLine("[→] 重命名: " + path + " → " + state.newName); }
+function deletePath(path) { sendCmd("delete", { path: path }); logLine("[→] 删除: " + path); }
+function readFile(path) { sendCmd("read_file", { path: path }); }
+function writeFile(path, content) { sendCmd("write_file", { path: path, content: content }); }
+function createFile(name, ext) { sendCmd("create_file", { path: curPath || rootPath, name: name, ext: ext }); }
+function createDir(name) { sendCmd("create_dir", { path: curPath || rootPath, name: name }); }
+function addTimedTask(path, type, time, days, date) {
+  const d = { path: path, type: type, time: time };
+  if (days) d.days = days;
+  if (date) d.date = date;
+  sendCmd("timed_task_add", d);
+  logLine("[→] 定时任务: " + path);
+}
+function removeTimedTask(id) { sendCmd("timed_task_remove", { id: id }); logLine("[→] 删除定时任务 #" + id); }
 function goUp() {
   const p = curPath.replace(/\/+$/, "");
   const idx = p.lastIndexOf("/");
@@ -164,7 +251,30 @@ function goUp() {
   listScripts();
 }
 
-/* ================= 渲染 ================= */
+/* ================= 排序与折叠 ================= */
+function sortItems(list, cfg) {
+  const mul = cfg.asc ? 1 : -1;
+  const arr = list.slice();
+  arr.sort((a, b) => {
+    if (cfg.type === "name") return a.name.localeCompare(b.name, "zh") * mul;
+    if (cfg.type === "size") return (a.size - b.size) * mul;
+    if (cfg.type === "time") return ((a.mtime || 0) - (b.mtime || 0)) * mul;
+    return a.name.localeCompare(b.name, "zh") * mul;
+  });
+  return arr;
+}
+function setSort(section, type) {
+  const cfg = sortCfg[section];
+  if (cfg.type === type) cfg.asc = !cfg.asc; else { cfg.type = type; cfg.asc = true; }
+  listScripts(); // 重新拉取后按新配置渲染（文件时间由服务端给出）
+}
+function toggleCollapse(section) {
+  collapsed[section] = !collapsed[section];
+  listScripts();
+}
+const SORT_LABEL = { name: "名称", size: "大小", time: "时间", type: "类型" };
+
+/* ================= 渲染：脚本列表 ================= */
 function joinPath(base, name) { return base ? base.replace(/\/+$/, "") + "/" + name : name; }
 function fmtSize(n) {
   if (n === undefined || n === null) return "";
@@ -173,7 +283,6 @@ function fmtSize(n) {
   return (n / 1048576).toFixed(1).replace(/\.0$/, "") + " MB";
 }
 
-// 还原原 App 脚本列表：文件夹区在上、文件区在下，文件显示大小
 function renderScripts(d) {
   rootPath = d.root || "/";
   $("curPath").textContent = d.path || rootPath;
@@ -183,52 +292,308 @@ function renderScripts(d) {
   if (!items.length) { box.innerHTML = '<div class="hint">（空目录）</div>'; return; }
   const dirs = items.filter(i => i.isDir);
   const files = items.filter(i => !i.isDir);
-  const section = (title, list, buildRow) => {
-    if (!list.length) return;
+
+  const sectionHead = (title, key) => {
     const h = document.createElement("div");
     h.className = "sec";
-    h.textContent = title;
+    h.innerHTML = `<span class="arr ${collapsed[key] ? "" : "open"}">▶</span><span>${title}</span>
+      <span class="spacer"></span>
+      <button class="sortbtn" onclick="event.stopPropagation();setSort('${key}','name')">${SORT_LABEL.name}</button>
+      <button class="sortbtn" onclick="event.stopPropagation();setSort('${key}','size')">${SORT_LABEL.size}</button>
+      <button class="sortbtn" onclick="event.stopPropagation();setSort('${key}','time')">${SORT_LABEL.time}</button>
+      <span style="opacity:.7">${sortCfg[key].asc ? "↑" : "↓"}</span>`;
+    h.onclick = () => toggleCollapse(key);
     box.appendChild(h);
-    list.forEach(it => box.appendChild(buildRow(it)));
   };
-  section("文件夹", dirs, it => {
-    const row = document.createElement("div");
-    row.className = "item";
-    const full = joinPath(d.path, it.name);
-    row.innerHTML = `<div class="name"><span class="ico dir">📁</span><span class="dir">${escapeHtml(it.name)}</span></div>
-      <div class="ops"><button class="ghost" onclick="event.stopPropagation();enterDir('${escapeAttr(full)}')">进入</button></div>`;
-    row.onclick = () => enterDir(full);
-    return row;
-  });
-  section("文件", files, it => {
-    const row = document.createElement("div");
-    row.className = "item";
-    const full = joinPath(d.path, it.name);
-    row.innerHTML = `<div class="name"><span class="ico">📄</span>${escapeHtml(it.name)}</div>
-      <div class="size">${fmtSize(it.size)}</div>
-      <div class="ops"><button onclick="event.stopPropagation();runScript('${escapeAttr(full)}')">▶ 运行</button></div>`;
-    row.onclick = () => runScript(full);
-    return row;
-  });
+
+  if (dirs.length) {
+    sectionHead("文件夹", "dirs");
+    if (!collapsed.dirs) {
+      sortItems(dirs, sortCfg.dirs).forEach(it => box.appendChild(dirRow(d.path, it)));
+    }
+  }
+  if (files.length) {
+    sectionHead("文件", "files");
+    if (!collapsed.files) {
+      sortItems(files, sortCfg.files).forEach(it => box.appendChild(fileRow(d.path, it)));
+    }
+  }
 }
+
+function dirRow(base, it) {
+  const row = document.createElement("div");
+  row.className = "item";
+  const full = joinPath(base, it.name);
+  row.innerHTML = `<div class="name"><span class="ico dir">📁</span><span class="dir">${escapeHtml(it.name)}</span></div>
+    <div class="ops">
+      <button class="ghost" onclick="event.stopPropagation();enterDir('${escapeAttr(full)}')">进入</button>
+      <button class="iconbtn" onclick="event.stopPropagation();toggleDD(this,'${escapeAttr(full)}','dir')">⋯</button>
+      <div class="dd">${ddButtons(full, true)}</div>
+    </div>`;
+  row.onclick = () => enterDir(full);
+  return row;
+}
+
+function fileRow(base, it) {
+  const row = document.createElement("div");
+  row.className = "item";
+  const full = joinPath(base, it.name);
+  row.innerHTML = `<div class="name"><span class="ico">📄</span>${escapeHtml(it.name)}</div>
+    <div class="size">${fmtSize(it.size)}</div>
+    <div class="ops">
+      <button onclick="event.stopPropagation();runScript('${escapeAttr(full)}')">▶ 运行</button>
+      <button class="ghost" onclick="event.stopPropagation();readFile('${escapeAttr(full)}')">✎</button>
+      <button class="iconbtn" onclick="event.stopPropagation();toggleDD(this,'${escapeAttr(full)}','file')">⋯</button>
+      <div class="dd">${ddButtons(full, false)}</div>
+    </div>`;
+  row.onclick = () => runScript(full);
+  return row;
+}
+
+function ddButtons(path, isDir) {
+  let s = `<button onclick="event.stopPropagation();downloadPath('${escapeAttr(path)}')">⬇ 下载</button>`;
+  if (!isDir) {
+    s += `<button onclick="event.stopPropagation();uiLoop('${escapeAttr(path)}')">🔁 循环运行</button>`;
+    s += `<button onclick="event.stopPropagation();uiTimedTask('${escapeAttr(path)}')">⏰ 定时任务</button>`;
+  }
+  s += `<button onclick="event.stopPropagation();uiRename('${escapeAttr(path)}')">✏ 重命名</button>`;
+  s += `<button class="del" onclick="event.stopPropagation();uiDelete('${escapeAttr(path)}')">🗑 删除</button>`;
+  return s;
+}
+
+function toggleDD(btn, path, kind) {
+  // 关闭其他下拉
+  document.querySelectorAll(".dd.open").forEach(el => { if (el !== btn.nextElementSibling) el.classList.remove("open"); });
+  const dd = btn.nextElementSibling;
+  const open = dd.classList.toggle("open");
+  if (open) {
+    // 列表容器 overflow 会裁剪 absolute 菜单，改为 fixed 定位到按钮下方
+    const r = btn.getBoundingClientRect();
+    dd.style.position = "fixed";
+    dd.style.top = Math.min(r.bottom + 4, window.innerHeight - 60) + "px";
+    dd.style.right = Math.max(8, window.innerWidth - r.right) + "px";
+    dd.style.left = "auto";
+  }
+  dd.__path = path;
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest(".dd") && !e.target.classList.contains("iconbtn")) {
+    document.querySelectorAll(".dd.open").forEach(el => el.classList.remove("open"));
+  }
+});
 function enterDir(path) { curPath = path; listScripts(); }
 
+/* ================= 渲染：任务（运行中 + 定时任务两组） ================= */
 function renderTasks(d) {
   engineIdToView = {};
   (d.executions || []).forEach(e => { engineIdToView[e.engineId] = e.viewId; });
   const box = $("taskList");
   box.innerHTML = "";
   const tasks = d.tasks || [];
-  if (!tasks.length) { box.innerHTML = '<div class="hint">暂无运行中的任务</div>'; return; }
+  const h = document.createElement("div");
+  h.className = "sec";
+  h.innerHTML = `<span class="arr open">▶</span><span>运行中脚本</span>`;
+  box.appendChild(h);
+  if (!tasks.length) {
+    box.innerHTML += '<div class="tasks-empty">暂无运行中的脚本</div>';
+  } else {
+    tasks.forEach(t => {
+      const row = document.createElement("div");
+      row.className = "task";
+      const view = engineIdToView[t.id];
+      const canStop = !!view;
+      row.innerHTML = `<div class="run"><span class="sp"></span><div><div>${escapeHtml(t.name)}</div><div class="p">${escapeHtml(t.path)}</div></div></div>
+        <button class="danger" ${canStop ? "" : "disabled"} onclick="event.stopPropagation();stopScript('${escapeAttr(view || "")}')">停止</button>`;
+      box.appendChild(row);
+    });
+  }
+}
+
+function renderTimedTasks(d) {
+  const box = $("taskList");
+  // 已有运行中区，追加定时任务区
+  const h = document.createElement("div");
+  h.className = "sec";
+  h.innerHTML = `<span class="arr open">▶</span><span>定时任务</span>`;
+  box.appendChild(h);
+  const tasks = d.tasks || [];
+  if (!tasks.length) {
+    box.innerHTML += '<div class="tasks-empty">暂无定时任务</div>';
+    return;
+  }
   tasks.forEach(t => {
     const row = document.createElement("div");
     row.className = "task";
-    const view = engineIdToView[t.id];
-    const canStop = !!view;
-    row.innerHTML = `<div class="run"><span class="sp"></span><div><div>${escapeHtml(t.name)}</div><div class="p">${escapeHtml(t.path)}</div></div></div>
-      <button class="danger" ${canStop ? "" : "disabled"} onclick="event.stopPropagation();stopScript('${escapeAttr(view || "")}')">停止</button>`;
+    const flag = t.timeFlag;
+    const type = t.isDaily ? "每日" : (t.isDisposable ? "一次性" : "每周");
+    const time = new Date(t.millis).toTimeString().slice(0, 5);
+    row.innerHTML = `<div class="run"><span class="sp off"></span><div><div>${type} ${time} · ${escapeHtml(t.scriptPath || "")}</div><div class="p">#${t.id} ${t.isScheduled ? "已调度" : "未调度"} · 循环 ${t.loopTimes} 次</div></div></div>
+      <button class="danger" onclick="event.stopPropagation();uiRemoveTimedTask(${t.id})">删除</button>`;
     box.appendChild(row);
   });
+}
+
+/* ================= 编辑器 ================= */
+function openEditor(d) {
+  edPath = d.path;
+  $("edPath").textContent = d.path;
+  $("edText").value = d.content || "";
+  $("edMask").classList.remove("hidden");
+}
+function closeEd() { $("edMask").classList.add("hidden"); edPath = null; }
+function edSave() {
+  if (!edPath) return;
+  writeFile(edPath, $("edText").value);
+  logLine("[✓] 已保存: " + edPath);
+}
+function edRun() {
+  if (!edPath) return;
+  const content = $("edText").value;
+  sendCmd("write_file", { path: edPath, content: content });
+  setTimeout(() => runScript(edPath), 300);
+}
+
+/* ================= FAB 菜单 ================= */
+function toggleFab() {
+  const m = $("fabMenu");
+  m.classList.toggle("hidden");
+  $("fab").textContent = m.classList.contains("hidden") ? "+" : "×";
+}
+
+/* ================= UI 弹窗 ================= */
+let state = {};
+function openModal(html) {
+  $("modalBox").innerHTML = html;
+  $("modalMask").classList.remove("hidden");
+}
+function closeModal() { $("modalMask").classList.add("hidden"); }
+function uiNewFile() {
+  state = {};
+  openModal(`
+    <h3>新建文件</h3>
+    <div class="row"><label>文件名</label><input type="text" id="mName" placeholder="hello"></div>
+    <div class="row"><label>类型</label>
+      <select id="mExt"><option value="js">.js</option><option value="mjs">.mjs</option><option value="txt">.txt</option></select></div>
+    <div class="btns"><button class="ghost" onclick="closeModal()">取消</button><button onclick="doNewFile()">创建</button></div>`);
+}
+function doNewFile() {
+  const name = $("mName").value.trim();
+  if (!name) { alert("文件名不能为空"); return; }
+  createFile(name, $("mExt").value);
+  closeModal();
+}
+function uiNewDir() {
+  state = {};
+  openModal(`
+    <h3>新建文件夹</h3>
+    <div class="row"><label>名称</label><input type="text" id="mName" placeholder="myfolder"></div>
+    <div class="btns"><button class="ghost" onclick="closeModal()">取消</button><button onclick="doNewDir()">创建</button></div>`);
+}
+function doNewDir() {
+  const name = $("mName").value.trim();
+  if (!name) { alert("名称不能为空"); return; }
+  createDir(name);
+  closeModal();
+}
+function uiRename(path) {
+  state.newPath = path;
+  const old = path.split("/").pop();
+  openModal(`
+    <h3>重命名</h3>
+    <div class="row"><label>新名称</label><input type="text" id="mName" value="${escapeAttr(old)}"></div>
+    <div class="btns"><button class="ghost" onclick="closeModal()">取消</button><button onclick="doRename()">确定</button></div>`);
+}
+function doRename() {
+  state.newName = $("mName").value.trim();
+  if (!state.newName) { alert("名称不能为空"); return; }
+  renamePath(state.newPath);
+  closeModal();
+}
+function uiDelete(path) {
+  if (!confirm("确定删除 " + path + " ？此操作不可恢复")) return;
+  deletePath(path);
+}
+function uiLoop(path) {
+  state.loopPath = path;
+  openModal(`
+    <h3>循环运行</h3>
+    <div class="row"><label>次数</label><input type="number" id="mLoop" value="3" min="1"></div>
+    <div class="row"><label>间隔 ms</label><input type="number" id="mInterval" value="1000" min="0"></div>
+    <div class="btns"><button class="ghost" onclick="closeModal()">取消</button><button onclick="doLoop()">运行</button></div>`);
+}
+function doLoop() {
+  state.loopTimes = parseInt($("mLoop").value) || 1;
+  state.loopInterval = parseInt($("mInterval").value) || 0;
+  runLoop(state.loopPath);
+  closeModal();
+}
+function uiTimedTask(path) {
+  state.ttPath = path;
+  state.ttDays = [1, 2, 3, 4, 5];
+  openModal(`
+    <h3>定时任务</h3>
+    <div class="row"><label>类型</label>
+      <select id="mType" onchange="ttTypeChanged()">
+        <option value="daily">每日</option><option value="weekly">每周</option><option value="disposable">一次性</option>
+      </select></div>
+    <div class="row"><label>时间</label><input type="time" id="mTime" value="09:00"></div>
+    <div class="row hidden" id="mDateRow"><label>日期</label><input type="date" id="mDate" value="${new Date().toISOString().slice(0, 10)}"></div>
+    <div class="row" id="mDaysRow"><label>星期</label><div class="days" id="mDays"></div></div>
+    <div class="btns"><button class="ghost" onclick="closeModal()">取消</button><button onclick="doTimedTask()">添加</button></div>`);
+  const daysBox = $("mDays");
+  ["日", "一", "二", "三", "四", "五", "六"].forEach((d, i) => {
+    const span = document.createElement("span");
+    span.textContent = "周" + d;
+    span.dataset.day = i + 1;
+    if (state.ttDays.includes(i + 1)) span.classList.add("on");
+    span.onclick = () => {
+      span.classList.toggle("on");
+      const v = parseInt(span.dataset.day);
+      if (span.classList.contains("on")) { if (!state.ttDays.includes(v)) state.ttDays.push(v); }
+      else state.ttDays = state.ttDays.filter(x => x !== v);
+    };
+    daysBox.appendChild(span);
+  });
+}
+function ttTypeChanged() {
+  const t = $("mType").value;
+  $("mDaysRow").classList.toggle("hidden", t !== "weekly");
+  $("mDateRow").classList.toggle("hidden", t !== "disposable");
+}
+function doTimedTask() {
+  const type = $("mType").value;
+  addTimedTask(state.ttPath, type, $("mTime").value,
+    type === "weekly" ? state.ttDays : null,
+    type === "disposable" ? $("mDate").value : null);
+  closeModal();
+}
+function uiRemoveTimedTask(id) {
+  if (!confirm("删除定时任务 #" + id + " ？")) return;
+  removeTimedTask(id);
+}
+function uiUpload() {
+  const inp = $("fileInput");
+  inp.onchange = () => {
+    const files = Array.from(inp.files || []);
+    if (!files.length) return;
+    const dir = curPath || rootPath;
+    files.forEach(f => {
+      const fd = new FormData();
+      fd.append("file", f);
+      fetch("/upload?path=" + encodeURIComponent(dir) + "&name=" + encodeURIComponent(f.name), {
+        method: "POST", body: fd
+      }).then(r => r.text()).then(t => {
+        logLine("[✓] 上传: " + f.name + " → " + t);
+        refreshAll();
+      }).catch(e => logLine("[!] 上传失败: " + e.message));
+    });
+    inp.value = "";
+  };
+  inp.click();
+}
+function downloadPath(path) {
+  window.open("/download?path=" + encodeURIComponent(path), "_blank");
+  logLine("[→] 下载: " + path);
 }
 
 /* ================= 日志 ================= */
@@ -246,6 +611,10 @@ function clearLog() { $("log").innerHTML = ""; }
 
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
 function escapeAttr(s) { return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/'/g,"&#39;"); }
+
+// 点击遮罩关闭模态
+$("modalMask").addEventListener("click", e => { if (e.target === $("modalMask")) closeModal(); });
+$("edMask").addEventListener("click", e => { if (e.target === $("edMask")) closeEd(); });
 
 connect();
 </script>

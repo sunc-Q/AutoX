@@ -251,11 +251,21 @@ object DevPlugin {
                         }
                     }
 
-                    else -> responseHandler.handle(obj)
+                    else -> {
+                        responseHandler.responder = { type, d ->
+                            CoroutineScope(Dispatchers.Main).launch { respond(type, d) }
+                        }
+                        responseHandler.handle(obj)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+
+        private suspend fun respond(type: String, data: JsonObject) {
+            if (!session.isActive) return
+            session.send(gson.toJson(Message(type, data)))
         }
 
         private suspend fun onBytesData(bytes: Bytes) {

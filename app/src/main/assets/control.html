@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoX 远程控制台</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3;
+    --dim:#8b949e; --accent:#2da44e; --accent2:#1f6feb; --danger:#f85149;
+    --warn:#d29922; --dir:#58a6ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",monospace;padding:16px}
+  .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+
+  /* 顶栏 */
+  .statusbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+  .statusbar .brand{font-weight:700;font-size:15px;letter-spacing:.3px}
+  .statusbar .brand b{color:var(--accent)}
+  .statusbar .st{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dim)}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--warn);display:inline-block}
+  .dot.ok{background:var(--accent)} .dot.err{background:var(--danger)}
+  .statusbar .spacer{flex:1}
+
+  button{background:var(--accent2);border:none;color:#fff;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit}
+  button:hover{filter:brightness(1.15)}
+  button.ghost{background:var(--panel);border:1px solid var(--border);color:var(--text)}
+  button.danger{background:#0d1117;border:1px solid var(--danger);color:var(--danger)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+  .panel h2{font-size:13px;color:var(--dim);font-weight:600;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+  .panel h2 .spacer{flex:1}
+
+  /* 路径栏 */
+  .pathbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px}
+  .pathbar .cur{flex:1;min-width:200px;font-size:12px;color:var(--dir);word-break:break-all}
+
+  /* 脚本列表 */
+  .list{display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto}
+  .item{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;cursor:pointer}
+  .item:hover{border-color:var(--accent2)}
+  .item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .name .ico{margin-right:6px}
+  .item .name .dir{color:var(--dir)}
+  .item .ops{display:flex;gap:6px;flex:none}
+  .item button{padding:4px 10px;font-size:12px}
+  .hint{color:var(--dim);font-size:12px;padding:6px 4px}
+
+  /* 任务 */
+  .task{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px}
+  .task .run{display:flex;align-items:center;gap:6px}
+  .task .run .sp{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+  .task .p{color:var(--dim);font-size:11px;margin-top:2px;word-break:break-all}
+  .task button{padding:4px 10px;font-size:12px}
+  .tasks-empty{color:var(--dim);font-size:12px;padding:6px 4px}
+
+  /* 日志 */
+  #log{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;color:var(--dim);height:150px;overflow-y:auto;white-space:pre-wrap}
+  #log .t{color:var(--accent2)}
+  #log .e{color:var(--danger)}
+
+  @media (max-width:600px){
+    body{padding:8px}
+    .statusbar .brand{font-size:14px}
+    .item{flex-wrap:wrap}
+    .item .ops{width:100%;justify-content:flex-end}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="statusbar">
+    <div class="brand">⚡ AutoX <b>远程控制台</b></div>
+    <div class="st"><span class="dot" id="connDot"></span><span id="connText">未连接</span></div>
+    <div class="spacer"></div>
+    <button class="ghost" onclick="refreshAll()">刷新</button>
+  </div>
+
+  <div class="pathbar">
+    <button class="ghost" onclick="goUp()">← 上级</button>
+    <span class="cur" id="curPath">/</span>
+    <button class="ghost" onclick="refreshAll()">↻ 刷新</button>
+  </div>
+
+  <div class="panel">
+    <h2>脚本列表<span class="spacer"></span><span style="color:var(--dim);font-weight:400">点击文件运行 · 点击目录进入</span></h2>
+    <div class="list" id="scriptList"><div class="hint">连接后自动加载…</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>运行中任务<span class="spacer"></span><button class="danger" onclick="stopAll()">停止全部</button></h2>
+    <div class="list" id="taskList"><div class="hint">暂无运行中的任务</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>实时日志<span class="spacer"></span><button class="ghost" onclick="clearLog()">清空</button></h2>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let ws = null, handshaken = false, reconnectTimer = null;
+let curPath = "";          // 当前浏览的目录（相对 root）
+let rootPath = "/";
+let engineIdToView = {};   // engineId -> viewId（用于停止）
+
+/* ================= WS 连接与握手 ================= */
+function connect() {
+  const url = "ws://" + location.hostname + ":9317/";
+  ws = new WebSocket(url);
+  ws.onopen = () => { setConn("已连接，握手…", ""); };
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (_) { return; }
+    onMsg(m);
+  };
+  ws.onclose = () => { handshaken = false; setConn("已断开，重连中…", "err"); ws = null; scheduleReconnect(); };
+  ws.onerror = () => setConn("连接失败", "err");
+}
+function scheduleReconnect() { clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connect, 3000); }
+function setConn(text, cls) { $("connDot").className = "dot " + (cls || ""); $("connText").textContent = text; }
+
+function onMsg(m) {
+  if (m.type === "hello") {
+    // 服务端先发 hello，回握手响应（version 11090 → 服务端期待 data="ok"）
+    ws.send(JSON.stringify({ type: "hello", data: "ok", version: "11090", message_id: "", debug: false }));
+    handshaken = true;
+    setConn("已连接 ✓", "ok");
+    refreshAll();
+    return;
+  }
+  if (m.type === "ping") { ws.send(JSON.stringify({ type: "pong", data: m.data })); return; }
+  if (m.type === "pong") return;
+  if (m.type === "log") { if (m.data && m.data.log) logLine(m.data.log); return; }
+  if (m.type === "list_scripts" && m.data) renderScripts(m.data);
+  else if (m.type === "tasks" && m.data) renderTasks(m.data);
+}
+
+function sendCmd(command, data) {
+  if (!ws || ws.readyState !== WebSocket.OPEN || !handshaken) { logLine("[!] 未连接或未握手，命令丢弃"); return; }
+  ws.send(JSON.stringify({ type: "command", command: command, data: data || {} }));
+}
+
+/* ================= 命令 ================= */
+function refreshAll() { listScripts(); refreshTasks(); }
+function listScripts() { sendCmd("list_scripts", curPath ? { path: curPath } : {}); }
+function refreshTasks() { sendCmd("tasks"); }
+function runScript(path) { sendCmd("run_path", { path: path }); logLine("[→] 运行: " + path); }
+function stopScript(viewId) { sendCmd("stop", { id: viewId }); logLine("[→] 停止: " + viewId); }
+function stopAll() { sendCmd("stopAll"); logLine("[→] 停止全部"); }
+function goUp() {
+  const p = curPath.replace(/\/+$/, "");
+  const idx = p.lastIndexOf("/");
+  curPath = idx <= 0 ? "" : p.substring(0, idx);
+  listScripts();
+}
+
+/* ================= 渲染 ================= */
+function joinPath(base, name) { return base ? base.replace(/\/+$/, "") + "/" + name : name; }
+
+function renderScripts(d) {
+  rootPath = d.root || "/";
+  $("curPath").textContent = d.path || rootPath;
+  const box = $("scriptList");
+  box.innerHTML = "";
+  const items = d.items || [];
+  if (!items.length) { box.innerHTML = '<div class="hint">（空目录）</div>'; return; }
+  items.forEach(it => {
+    const row = document.createElement("div");
+    row.className = "item";
+    const full = joinPath(d.path, it.name);
+    if (it.isDir) {
+      row.innerHTML = `<div class="name"><span class="ico dir">📁</span><span class="dir">${escapeHtml(it.name)}</span></div>
+        <div class="ops"><button class="ghost" onclick="enterDir('${escapeAttr(full)}')">进入</button></div>`;
+      row.onclick = () => enterDir(full);
+    } else {
+      row.innerHTML = `<div class="name"><span class="ico">📄</span>${escapeHtml(it.name)}</div>
+        <div class="ops"><button onclick="runScript('${escapeAttr(full)}')">▶ 运行</button></div>`;
+      row.onclick = () => runScript(full);
+    }
+    box.appendChild(row);
+  });
+}
+function enterDir(path) { curPath = path; listScripts(); }
+
+function renderTasks(d) {
+  engineIdToView = {};
+  (d.executions || []).forEach(e => { engineIdToView[e.engineId] = e.viewId; });
+  const box = $("taskList");
+  box.innerHTML = "";
+  const tasks = d.tasks || [];
+  if (!tasks.length) { box.innerHTML = '<div class="hint">暂无运行中的任务</div>'; return; }
+  tasks.forEach(t => {
+    const row = document.createElement("div");
+    row.className = "task";
+    const view = engineIdToView[t.id];
+    const canStop = !!view;
+    row.innerHTML = `<div class="run"><span class="sp"></span><div><div>${escapeHtml(t.name)}</div><div class="p">${escapeHtml(t.path)}</div></div></div>
+      <button class="danger" ${canStop ? "" : "disabled"} onclick="stopScript('${escapeAttr(view || "")}')">停止</button>`;
+    box.appendChild(row);
+  });
+}
+
+/* ================= 日志 ================= */
+function logLine(text) {
+  const el = $("log");
+  const line = document.createElement("div");
+  const isErr = /error|错误|exception/i.test(text);
+  line.className = isErr ? "e" : "";
+  line.textContent = "[" + new Date().toLocaleTimeString() + "] " + text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 500) el.removeChild(el.firstChild);
+}
+function clearLog() { $("log").innerHTML = ""; }
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+function escapeAttr(s) { return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/'/g,"&#39;"); }
+
+connect();
+</script>
+</body>
+</html>

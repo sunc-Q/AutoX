@@ -1,6 +1,7 @@
 package org.autojs.autojs.devplugin
 
 import android.annotation.SuppressLint
+import com.google.gson.JsonArray
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.stardust.app.GlobalAppContext
@@ -35,6 +36,9 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
         val TAG = DevPluginResponseHandler::class.java.simpleName
     }
 
+    /** 命令结果回发器：由 DevPlugin.Connection 在每次处理前指向当前 WS 连接。 */
+    var responder: ((type: String, data: JsonObject) -> Unit)? = null
+
     private val router = Router.RootRouter("type")
         .handler("command", Router("command")
             .handler("run") { data: JsonObject ->
@@ -68,6 +72,69 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
             }
             .handler("stopAll") { data: JsonObject? ->
                 EngineController.stopAllScript()
+                true
+            }
+            .handler("list_scripts") { data: JsonObject ->
+                val base = Pref.getScriptDirPath()
+                val path = if (data.has("path") && !data.get("path").isJsonNull)
+                    data["path"].asString else base
+                val items = JsonArray()
+                val dir = File(path)
+                dir.listFiles()?.sortedWith(
+                    compareBy({ !it.isDirectory }, { it.name.lowercase() })
+                )?.forEach { f ->
+                    items.add(JsonObject().apply {
+                        addProperty("name", f.name)
+                        addProperty("path", f.path)
+                        addProperty("isDir", f.isDirectory)
+                    })
+                }
+                responder?.invoke("list_scripts", JsonObject().apply {
+                    addProperty("path", path)
+                    addProperty("root", base)
+                    add("items", items)
+                })
+                true
+            }
+            .handler("run_path") { data: JsonObject ->
+                val path = data["path"].asString
+                val file = File(path)
+                if (file.exists() && file.isFile) {
+                    runScript(path, file.name, file.readText())
+                    toast("运行成功")
+                } else {
+                    toast("run_path: 文件不存在: $path")
+                }
+                true
+            }
+            .handler("tasks") { data: JsonObject? ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    val tasks = JsonArray()
+                    val list = try {
+                        EngineController.getAllScriptTasks().await()
+                    } catch (e: Exception) {
+                        emptyList<TaskInfo>()
+                    }
+                    list.forEach { t ->
+                        tasks.add(JsonObject().apply {
+                            addProperty("id", t.id)
+                            addProperty("name", t.name)
+                            addProperty("path", t.sourcePath)
+                            addProperty("running", t.isRunning)
+                        })
+                    }
+                    val execs = JsonArray()
+                    mScriptExecutions.forEach { (viewId, engineId) ->
+                        execs.add(JsonObject().apply {
+                            addProperty("viewId", viewId)
+                            addProperty("engineId", engineId)
+                        })
+                    }
+                    responder?.invoke("tasks", JsonObject().apply {
+                        add("tasks", tasks)
+                        add("executions", execs)
+                    })
+                }
                 true
             })
         .handler("bytes_command", Router("command")

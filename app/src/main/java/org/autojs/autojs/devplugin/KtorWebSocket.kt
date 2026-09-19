@@ -2,11 +2,14 @@ package org.autojs.autojs.devplugin
 
 import android.util.Log
 import com.aiselp.autox.devapi.HttpApi.Companion.installRoute
+import com.stardust.app.GlobalAppContext
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocket
+import io.ktor.http.ContentType
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.ApplicationStarted
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
@@ -14,10 +17,13 @@ import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.mutableOriginConnectionPoint
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
+import java.io.File
 
 class WebSocketServer {
 
@@ -47,6 +53,9 @@ class WebSocketServer {
             }
             routing {
                 installRoute()
+                get("/") {
+                    serveControlPage(context)
+                }
                 webSocket(path) {
                     val connectionPoint = this.call.mutableOriginConnectionPoint
                     Log.i(TAG, connectionPoint.remoteHost + ":" + connectionPoint.port)
@@ -65,6 +74,17 @@ class WebSocketServer {
             }
         }
         engine!!.start(wait = false)
+    }
+
+    /** 控制页：filesDir/control.html 优先（可热更新），回退 assets/control.html。 */
+    private suspend fun serveControlPage(call: ApplicationCall) {
+        val html = try {
+            File(GlobalAppContext.get().filesDir, "control.html").takeIf { it.exists() }?.readText()
+                ?: GlobalAppContext.get().assets.open("control.html").bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            "<html><body><h1>control.html not found</h1></body></html>"
+        }
+        call.respondText(html, ContentType.Text.Html)
     }
 
     fun stop(gracePeriodMillis: Long = 0, timeoutMillis: Long = 0) {

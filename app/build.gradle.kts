@@ -56,7 +56,7 @@ android {
             // Resets the list of ABIs that Gradle should create APKs for to none.
             reset()
             // Specifies a list of ABIs that Gradle should create APKs for.
-            include("arm64-v8a")
+            include("arm64-v8a", "x86_64")
             // Specifies that we do not want to also generate a universal APK that includes all ABIs.
             isUniversalApk = false
         }

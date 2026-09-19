@@ -87,6 +87,7 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
                         addProperty("name", f.name)
                         addProperty("path", f.path)
                         addProperty("isDir", f.isDirectory)
+                        addProperty("size", f.length())
                     })
                 }
                 responder?.invoke("list_scripts", JsonObject().apply {

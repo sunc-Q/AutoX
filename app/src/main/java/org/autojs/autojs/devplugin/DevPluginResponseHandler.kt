@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
@@ -50,6 +51,10 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
 
     /** 循环运行中标记：stop/stopAll 时置位，循环协程据此提前退出。 */
     private val mLoopRunning = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    /** 通过 connect_compute 发起的 PC 连接地址（DevPlugin.connection 是单槽：控制页连接也占槽，
+     *  未真正连 PC 时 disconnect 不能调 DevPlugin.close()，否则会误关控制页连接）。 */
+    private var mPcConnectedUrl: String? = null
 
     private val router = Router.RootRouter("type")
         .handler("command", Router("command")
@@ -351,6 +356,59 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
                     addProperty("ok", true)
                     addProperty("key", key)
                 })
+                true
+            }
+            .handler("connect_compute") { data: JsonObject? ->
+                // 连接/断开 PC 端 AutoX.js 桌面版（手机作为 WS 客户端）。action: connect{url} / disconnect / status
+                val reply = responder
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val action = data?.get("action")?.asString ?: "status"
+                        when (action) {
+                            "connect" -> {
+                                val url = data?.get("url")?.asString ?: ""
+                                if (url.matches(Regex("^(ws://|wss://).+$"))) {
+                                    Pref.saveServerAddress(url)
+                                    mPcConnectedUrl = url
+                                    DevPlugin.connect(url)
+                                    reply?.invoke("connect_compute", JsonObject().apply {
+                                        addProperty("ok", true)
+                                        addProperty("state", DevPlugin.currentState.state)
+                                        addProperty("url", url)
+                                    })
+                                } else {
+                                    reply?.invoke("connect_compute", JsonObject().apply {
+                                        addProperty("ok", false)
+                                        addProperty("state", DevPlugin.State.DISCONNECTED)
+                                        addProperty("error", "地址必须以 ws:// 或 wss:// 开头")
+                                    })
+                                }
+                            }
+                            "disconnect" -> {
+                                if (mPcConnectedUrl != null) {
+                                    mPcConnectedUrl = null
+                                    DevPlugin.close()
+                                }
+                                reply?.invoke("connect_compute", JsonObject().apply {
+                                    addProperty("ok", true)
+                                    addProperty("state", DevPlugin.State.DISCONNECTED)
+                                })
+                            }
+                            else -> {
+                                val st = if (mPcConnectedUrl != null) DevPlugin.currentState.state else DevPlugin.State.DISCONNECTED
+                                reply?.invoke("connect_compute", JsonObject().apply {
+                                    addProperty("ok", true)
+                                    addProperty("state", st)
+                                })
+                            }
+                        }
+                    } catch (e: Exception) {
+                        reply?.invoke("connect_compute", JsonObject().apply {
+                            addProperty("ok", false)
+                            addProperty("error", e.message ?: "unknown")
+                        })
+                    }
+                }
                 true
             })
         .handler("bytes_command", Router("command")

@@ -69,6 +69,11 @@ object DevPlugin {
     private val server by lazy { WebSocketServer() }
 
     private var connection: Connection? = null
+
+    /** 当前连接状态快照：connectState 是 replay=0 的 SharedFlow，无订阅者时 replayCache 恒空，
+     *  只能靠变量保存最近一次状态供查询（控制页 connect_compute/status 使用）。 */
+    @Volatile
+    var currentState: State = State(State.DISCONNECTED)
     val isActive get() = connection?.isActive ?: false
     private val bytesMap = HashMap<String, Bytes>()
     private val requiredBytesCommands = HashMap<String, JsonObject>()
@@ -447,6 +452,7 @@ object DevPlugin {
         }
 
         suspend fun emitState(state: State) {
+            currentState = state
             if (connection === this) _connectState.emit(state)
         }
     }
@@ -457,5 +463,8 @@ object DevPlugin {
         connection.init()
     }
 
-    suspend fun emitState(state: State) = _connectState.emit(state)
+    suspend fun emitState(state: State) {
+        currentState = state
+        _connectState.emit(state)
+    }
 }

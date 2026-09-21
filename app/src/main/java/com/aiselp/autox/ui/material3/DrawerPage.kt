@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -143,6 +144,7 @@ fun DrawerPage(drawerState: DrawerState) {
                 AutoBackupSwitch()
 
                 Text(text = stringResource(id = R.string.text_others), style = textStyle)
+                RemoteConsoleAddress()
                 ConnectComputerSwitch()
                 USBDebugSwitch()
 
@@ -639,6 +641,40 @@ private fun AutoBackupSwitch() {
             enable = it
         }
     )
+}
+
+@Composable
+private fun RemoteConsoleAddress() {
+    val context = LocalContext.current
+    var show by remember { mutableStateOf(false) }
+    val ip = remember { WifiTool.getWifiAddress(context) ?: "" }
+    val base = remember(ip) { if (ip.isEmpty()) "" else "http://$ip:${DevPlugin.SERVER_PORT}" }
+    val ws = remember(ip) { if (ip.isEmpty()) "" else "ws://$ip:${DevPlugin.SERVER_PORT}" }
+    TextButton(onClick = { show = true }) {
+        Text(text = "远程控制台（Web/WS 地址）")
+    }
+    if (show) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { show = false },
+            title = { Text("远程控制台") },
+            text = {
+                Column {
+                    if (ip.isEmpty()) {
+                        Text("未连接 WiFi，请先连接无线网络")
+                    } else {
+                        Text("Web 控制台（浏览器打开）：")
+                        SelectionContainer { Text(base, style = MaterialTheme.typography.bodyMedium) }
+                        Spacer(Modifier.height(8.dp))
+                        Text("WebSocket 通道（脚本/客户端连接）：")
+                        SelectionContainer { Text(ws, style = MaterialTheme.typography.bodyMedium) }
+                        Spacer(Modifier.height(8.dp))
+                        Text("长按地址可复制。同一 WiFi 下用浏览器访问即可远程控制本机脚本。", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { show = false }) { Text("关闭") } }
+        )
+    }
 }
 
 @Composable

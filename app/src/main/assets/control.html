@@ -118,6 +118,7 @@
     <div class="brand">⚡ AutoX <b>远程控制台</b></div>
     <div class="st"><span class="dot" id="connDot"></span><span id="connText">未连接</span></div>
     <div class="spacer"></div>
+    <button class="ghost" id="btnConnect" onclick="uiConnect()">🤝 连接电脑</button>
     <button class="ghost" onclick="refreshAll()">刷新</button>
   </div>
 
@@ -199,6 +200,11 @@ function scheduleReconnect() { clearTimeout(reconnectTimer); reconnectTimer = se
 function setConn(text, cls) { $("connDot").className = "dot " + (cls || ""); $("connText").textContent = text; }
 
 function onMsg(m) {
+  if (m.type === "connect_compute") {
+    if (m.data && typeof m.data.state === "number") renderCcState(m.data.state);
+    if (m.data && m.data.error) logLine("[!] 连接电脑: " + m.data.error);
+    return;
+  }
   if (m.type === "hello") {
     ws.send(JSON.stringify({ type: "hello", data: "ok", version: "11090", message_id: "", debug: false }));
     handshaken = true;
@@ -617,6 +623,38 @@ function doNewText() {
 function downloadPath(path) {
   window.open("/download?path=" + encodeURIComponent(path), "_blank");
   logLine("[→] 下载: " + path);
+}
+
+/* ================= 连接电脑（手机作为 WS 客户端连到 PC 端 AutoX.js 桌面版） ================= */
+const CC_STATES = ["未连接", "连接中", "已连接", "连接失败", "重连中", "握手超时"];
+let ccState = 0;
+function ccStateText(st) { return CC_STATES[st] || ("未知(" + st + ")"); }
+function renderCcState(st) {
+  ccState = st;
+  const el = $("ccState");
+  if (el) { el.textContent = ccStateText(st); el.style.color = st === 2 ? "#4caf50" : (st === 0 ? "var(--dim)" : "#ff9800"); }
+}
+function uiConnect() {
+  openModal(`
+    <h3>🤝 连接电脑</h3>
+    <div class="row"><label>PC 地址</label>
+      <input type="text" id="ccUrl" placeholder="ws://192.168.x.x:9317"></div>
+    <div class="row"><label>状态</label><b id="ccState" style="color:var(--dim)">${ccStateText(ccState)}</b></div>
+    <div class="btns">
+      <button class="ghost" onclick="ccCmd('status')">刷新状态</button>
+      <button class="ghost" onclick="ccCmd('disconnect')">断开</button>
+      <button onclick="ccCmd('connect')">连接</button>
+      <button class="ghost" onclick="closeModal()">关闭</button>
+    </div>
+    <p style="font-size:11px;color:var(--dim);margin:8px 0 0">连接后可用电脑端 AutoX.js 桌面版管理/推送/运行手机脚本。地址格式 ws://电脑IP:端口。</p>`);
+}
+function ccCmd(action) {
+  const url = $("ccUrl") ? $("ccUrl").value.trim() : "";
+  if (action === "connect" && !/^wss?:\/\//.test(url)) { alert("PC 地址必须以 ws:// 或 wss:// 开头"); return; }
+  const payload = action === "connect" ? { action: "connect", url: url } : { action: action };
+  sendCmd("connect_compute", payload);
+  logLine("[→] 连接电脑: " + action + (url ? " " + url : ""));
+  closeModal();
 }
 
 /* ================= 日志 ================= */

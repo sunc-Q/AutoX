@@ -147,6 +147,7 @@
 <!-- FAB 新建菜单（还原原 App FAB：新建文件/新建文件夹/导入文件/新建项目） -->
 <div class="fabmenu hidden" id="fabMenu">
   <button onclick="uiNewFile()">📄 新建文件</button>
+  <button onclick="uiNewText()">📝 粘贴文本</button>
   <button onclick="uiNewDir()">📁 新建文件夹</button>
   <button onclick="uiUpload()">⬆ 导入文件</button>
 </div>
@@ -578,10 +579,10 @@ function uiUpload() {
     if (!files.length) return;
     const dir = curPath || rootPath;
     files.forEach(f => {
-      const fd = new FormData();
-      fd.append("file", f);
+      // 直接以文件内容为请求体（raw body）：后端 receiveStream 原样写盘。
+      // 不能用 FormData——multipart 包装会被当成文件内容写入。
       fetch("/upload?path=" + encodeURIComponent(dir) + "&name=" + encodeURIComponent(f.name), {
-        method: "POST", body: fd
+        method: "POST", body: f
       }).then(r => r.text()).then(t => {
         logLine("[✓] 上传: " + f.name + " → " + t);
         refreshAll();
@@ -590,6 +591,28 @@ function uiUpload() {
     inp.value = "";
   };
   inp.click();
+}
+
+/* 粘贴文本新建脚本：write_file 后端会自动创建文件，直接写内容即可 */
+function uiNewText() {
+  state = {};
+  openModal(`
+    <h3>粘贴文本新建脚本</h3>
+    <div class="row"><label>文件名</label><input type="text" id="mName" placeholder="hello"></div>
+    <div class="row"><label>类型</label>
+      <select id="mExt"><option value="js">.js</option><option value="mjs">.mjs</option><option value="txt">.txt</option></select></div>
+    <textarea id="mContent" placeholder="在此粘贴脚本内容，保存后立即写入设备…"></textarea>
+    <div class="btns"><button class="ghost" onclick="closeModal()">取消</button><button onclick="doNewText()">创建</button></div>`);
+}
+function doNewText() {
+  const name = $("mName").value.trim();
+  if (!name) { alert("文件名不能为空"); return; }
+  const content = $("mContent").value;
+  const ext = $("mExt").value;
+  const full = joinPath(curPath || rootPath, name.endsWith("." + ext) ? name : name + "." + ext);
+  sendCmd("write_file", { path: full, content: content });
+  logLine("[→] 创建脚本: " + full);
+  closeModal();
 }
 function downloadPath(path) {
   window.open("/download?path=" + encodeURIComponent(path), "_blank");

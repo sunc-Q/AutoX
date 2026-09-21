@@ -4,6 +4,9 @@ coil-compose-version = "2.0.0-rc03"
 core-ktx = "1.13.0"
 google-gson = "2.9.1"
 junit = "4.13.2"
+mockk = "1.13.9"
+kotlinx-coroutines-test = "1.6.4"
+turbine = "0.12.1"
 kotlinx-coroutines-android = "1.6.2"
 lifecycle = "2.8.7"
 okhttp = "4.10.0"
@@ -113,6 +116,9 @@ ktsh = "com.jaredrummler:ktsh:1.0.0"
 
 #test libraries ===================================
 junit = { module = "junit:junit", version.ref = "junit" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines-test" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 androidx-junit-ktx = { group = "androidx.test.ext", name = "junit-ktx", version.ref = "junit-ktx" }
 #leakcanary
 leakcanary-android = "com.squareup.leakcanary:leakcanary-android:2.14"

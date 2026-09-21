@@ -159,6 +159,15 @@ android {
             }
         }
     }
+    testOptions {
+        unitTests {
+            // android.jar 方法在本地 JVM 单测中返回默认值（而非抛 "not mocked"），
+            // 便于对 DevPluginResponseHandler 的 router 分发/connect_compute 逻辑做纯逻辑测试
+            isReturnDefaultValues = true
+            all { it.maxHeapSize = "512m" }
+        }
+    }
+
     sourceSets {
         getByName("main") {
             res.srcDirs("src/main/res", "src/main/res-i18n")
@@ -202,6 +211,9 @@ dependencies {
 
     androidTestImplementation(libs.espresso.core)
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
     // Kotlin携程
     implementation(libs.kotlinx.coroutines.android)
     // ButterKnife Deprecated!!

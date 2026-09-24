@@ -2,6 +2,7 @@ package org.autojs.autojs.ui.main
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
@@ -52,6 +53,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.autojs.autojs.Pref
 import org.autojs.autojs.devplugin.DevPlugin
+import org.autojs.autojs.devplugin.DevPluginKeepAliveService
 import org.autojs.autojs.timing.TimedTaskScheduler
 import org.autojs.autojs.ui.floating.FloatyWindowManger
 import org.autojs.autojs.ui.main.components.DocumentPageMenuButton
@@ -74,8 +76,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 远程控制插件：启动 9317 HTTP/WS 服务（浏览器访问 http://手机IP:9317）
-        CoroutineScope(Dispatchers.Main).launch { DevPlugin.startUSBDebug() }
+        // 远程控制插件：前台服务保活 9317 HTTP/WS 服务，通知显示网页地址（浏览器访问 http://手机IP:9317）
+        DevPluginKeepAliveService.start(this)
+        requestNotificationPermissionIfNeeded()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         Log.i("MainActivity", "Pid: ${Process.myPid()}")
         ScriptServiceConnection.GlobalConnection.bind(application)
@@ -136,6 +139,14 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }
+        }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
     }
 

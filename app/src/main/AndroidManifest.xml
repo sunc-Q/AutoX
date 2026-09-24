@@ -22,6 +22,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> <!-- 非auto_js运行必需，不会主动申请，某些脚本可以自行申请 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCEPT_HANDOVER" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
@@ -201,6 +203,15 @@
             <intent-filter>
                 <action android:name="org.autojs.autojs.devplugin.IDevPluginService" />
             </intent-filter>
+        </service>
+        <service
+            android:name="org.autojs.autojs.devplugin.DevPluginKeepAliveService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBDOMAIN"
+                android:value="devplugin_keepalive" />
         </service>
         <service
             android:name="org.autojs.autojs.tool.AccessibilityProxyServiceImpl"

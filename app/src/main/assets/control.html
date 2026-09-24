@@ -108,6 +108,7 @@
     .statusbar .brand{font-size:14px}
     .item{flex-wrap:wrap}
     .item .ops{width:100%;justify-content:flex-end}
+    .runhint{display:none}
   }
 </style>
 </head>
@@ -118,7 +119,7 @@
     <div class="brand">⚡ AutoX <b>远程控制台</b></div>
     <div class="st"><span class="dot" id="connDot"></span><span id="connText">未连接</span></div>
     <div class="spacer"></div>
-    <button class="ghost" id="btnConnect" onclick="uiConnect()">🤝 连接电脑</button>
+    <button class="ghost" id="btnConnect" onclick="uiConnect()"><span class="dot" id="ccDot" style="margin-right:6px;background:var(--dim)"></span>🤝 连接电脑</button>
     <button class="ghost" onclick="refreshAll()">刷新</button>
   </div>
 
@@ -129,7 +130,7 @@
   </div>
 
   <div class="panel">
-    <h2>脚本列表<span class="spacer"></span><span style="color:var(--dim);font-weight:400">点击文件运行</span></h2>
+    <h2>脚本列表<span class="spacer"></span><button class="ghost" style="padding:4px 10px;font-size:12px;margin-right:8px" onclick="uiUpload()">⬆ 上传文件</button><span class="runhint" style="color:var(--dim);font-weight:400">点击文件运行</span></h2>
     <div class="list scroll" id="scriptList"><div class="hint">连接后自动加载…</div></div>
   </div>
 
@@ -229,7 +230,8 @@ function sendCmd(command, data) {
 }
 
 /* ================= 命令 ================= */
-function refreshAll() { listScripts(); refreshTasks(); refreshTimedTasks(); }
+function refreshAll() { listScripts(); refreshTasks(); refreshTimedTasks(); queryCcStatus(); }
+function queryCcStatus() { sendCmd("connect_compute", { action: "status" }); }
 function listScripts() { sendCmd("list_scripts", curPath ? { path: curPath } : {}); }
 function refreshTasks() { sendCmd("tasks"); }
 function refreshTimedTasks() { sendCmd("timed_tasks"); }
@@ -631,6 +633,12 @@ let ccState = 0;
 function ccStateText(st) { return CC_STATES[st] || ("未知(" + st + ")"); }
 function renderCcState(st) {
   ccState = st;
+  const dot = $("ccDot");
+  if (dot) {
+    dot.className = "dot " + (st === 2 ? "ok" : (st === 3 || st === 5 ? "err" : ""));
+    // 未连接用灰色（dot 默认是黄色警示色）
+    dot.style.background = st === 0 ? "var(--dim)" : "";
+  }
   const el = $("ccState");
   if (el) { el.textContent = ccStateText(st); el.style.color = st === 2 ? "#4caf50" : (st === 0 ? "var(--dim)" : "#ff9800"); }
 }
@@ -654,7 +662,7 @@ function ccCmd(action) {
   const payload = action === "connect" ? { action: "connect", url: url } : { action: action };
   sendCmd("connect_compute", payload);
   logLine("[→] 连接电脑: " + action + (url ? " " + url : ""));
-  closeModal();
+  // 不关闭弹窗：后续状态变化由后端推送，#ccState 实时更新
 }
 
 /* ================= 日志 ================= */

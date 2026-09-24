@@ -93,7 +93,7 @@ class ConnectComputeTest {
 
     private fun mockDevPluginAndPref(state: Int = DevPlugin.State.DISCONNECTED) {
         mockkObject(DevPlugin)
-        every { DevPlugin.currentState } returns DevPlugin.State(state)
+        every { DevPlugin.currentPcState } returns DevPlugin.State(state)
         coEvery { DevPlugin.connect(any()) } just Runs
         // DevPlugin.close() 推断类型为 Unit?（connection?.close()），须返回 null
         coEvery { DevPlugin.close() } returns null
@@ -204,5 +204,24 @@ class ConnectComputeTest {
         awaitResponses()
         assertTrue(lastResponse["ok"].asBoolean)
         assertEquals(0, lastResponse["state"].asInt)
+    }
+
+    @Test
+    fun `status reflects pc connection initiated from app drawer - regression`() {
+        // 回归：从 App 抽屉/扫码发起的连接（网页未发过 connect），网页端 status 必须能读到真实状态。
+        // 旧实现用 mPcConnectedUrl 守卫，App 发起的连接恒报 DISCONNECTED。
+        mockDevPluginAndPref(state = DevPlugin.State.CONNECTED)
+        assertTrue(handler.handle(frame("status")))
+        awaitResponses()
+        assertEquals(2, lastResponse["state"].asInt)
+    }
+
+    @Test
+    fun `disconnect can close app-initiated pc connection - regression`() {
+        // 回归：App 抽屉发起的连接，网页端点断开也应生效（旧实现守卫导致 close 不被调用）。
+        mockDevPluginAndPref(state = DevPlugin.State.CONNECTED)
+        assertTrue(handler.handle(frame("disconnect")))
+        awaitResponses()
+        coVerify(exactly = 1) { DevPlugin.close() }
     }
 }

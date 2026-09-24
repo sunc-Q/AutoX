@@ -221,3 +221,50 @@
 - `./gradlew :app:testSuncV7DebugUnitTest`：33 测试全过
 - `./gradlew :app:test --no-parallel -Dorg.gradle.jvmargs="-Xmx2048m"`：**8 变体（common/v7/v7_mini/suncV7 × debug/release）264 测试全过，0 失败**
 - 收益兑现：Router 链闭合/帧格式类 bug（静默丢弃零日志）现在 JVM 单测当场可抓，不再每次改 Kotlin 重装模拟器
+
+## 十二、上传入口可见性 + 连接电脑状态同步修复（2026-09-24）
+
+### 问题
+
+1. 网页端看不到上传文件按钮（实际只藏在 FAB「+ → 导入文件」里，无显式入口）。
+2. 连接电脑是否成功不会同步到网页端。
+
+### 根因
+
+1. **上传入口**：仅 FAB 菜单内有「导入文件」，脚本列表面板无任何上传入口（原 App 工具栏有导入动作）。
+2. **状态不同步（三个根因）**：
+   - 后端**无推送机制**：`DevPlugin.connectState` 只有 `collect()` 自己订阅（弹 toast），
+     网页端从未订阅；CONNECTING→CONNECTED/失败/重连等异步变化网页完全收不到。
+   - **状态被控制页污染**：控制页接入手机（服务端连接）时 `Connection.handle()` 同样 emit CONNECTED，
+     与手机→电脑（客户端连接）共用 `currentState`，语义混淆。
+   - **status 守卫错误**：`if (mPcConnectedUrl != null)` 中 mPcConnectedUrl 只在网页发 connect 时赋值，
+     从 App 抽屉/扫码发起的连接恒报 DISCONNECTED。
+   - 前端 `ccCmd` 发完命令立即 `closeModal()`，回复和后续状态都看不到；握手后也不主动查状态。
+
+### 修复（4 文件）
+
+- **DevPlugin.kt**：新增独立的 PC 客户端状态流 `_pcConnectState`（SharedFlow, extraBufferCapacity=16）
+  + 快照 `currentPcState` + `emitPcState`；
+  - `connect()` 同步 emit PC 状态（CONNECTING / CONNECTION_FAILED）；
+  - `Connection.emitState` 仅当 `serverUrl != null`（客户端连接）才更新 PC 状态，控制页连接不再污染。
+- **DevPluginResponseHandler.kt**：
+  - 新增推送回调注册表 `statePushers`（CopyOnWriteArrayList）+ register/unregisterPusher；
+  - init 订阅 `DevPlugin.pcConnectState`，状态变化广播给所有已接入控制页；
+  - connect_compute：connect/status 直接读 `currentPcState`；disconnect 守卫改为
+    `currentPcState != DISCONNECTED`（App 发起的连接网页也能断开），未连电脑不调 close。
+- **DevPlugin.Connection**：`handle()` 对服务端连接（serverUrl==null）注册推送回调，
+  mapToData onFinally 注销。
+- **control.html**：
+  - 脚本列表 h2 增加显式「⬆ 上传文件」按钮（FAB 入口保留）；
+  - 顶栏「连接电脑」按钮加状态圆点（灰=未连接/黄=进行中/绿=已连接/红=失败）；
+  - 握手后 refreshAll 主动查 status；`ccCmd` 不再关闭弹窗，#ccState 随推送实时更新；
+  - ≤600px 隐藏「点击文件运行」提示。
+
+### 验证
+
+- `:app:testSuncV7DebugUnitTest` 通过；`:app:test` 全部变体通过（新增 2 个回归测试：
+  App 发起连接 status 可读、App 发起连接网页可断开）。
+- 控制页无头渲染（420px iframe 实测，旧 headless 最小布局宽度 500 会造成截断假象）：
+  上传按钮/状态圆点/FAB/路径栏均完整，无横向溢出。
+- APK：`AutoX-suncV7-debug.apk`（arm64）、`AutoX-suncV7-x86_64-debug.apk`，
+  已解包校验 assets/control.html 含新按钮。

@@ -52,9 +52,12 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
     /** 循环运行中标记：stop/stopAll 时置位，循环协程据此提前退出。 */
     private val mLoopRunning = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
-    /** 通过 connect_compute 发起的 PC 连接地址（DevPlugin.connection 是单槽：控制页连接也占槽，
-     *  未真正连 PC 时 disconnect 不能调 DevPlugin.close()，否则会误关控制页连接）。 */
-    private var mPcConnectedUrl: String? = null
+    /** 控制页状态推送回调集合：每个接入的控制页连接注册一个，PC 连接状态变化时广播给全部页面。
+     *  responder 是单槽、只指向最近活跃连接，无法承担主动推送。 */
+    private val statePushers = java.util.concurrent.CopyOnWriteArrayList<(JsonObject) -> Unit>()
+
+    fun registerPusher(p: (JsonObject) -> Unit) { statePushers.addIfAbsent(p) }
+    fun unregisterPusher(p: (JsonObject) -> Unit) { statePushers.remove(p) }
 
     private val router = Router.RootRouter("type")
         .handler("command", Router("command")
@@ -360,6 +363,7 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
             }
             .handler("connect_compute") { data: JsonObject? ->
                 // 连接/断开 PC 端 AutoX.js 桌面版（手机作为 WS 客户端）。action: connect{url} / disconnect / status
+                // 异步状态变化（连接中→已连接/失败/重连）由 pcConnectState 订阅主动推送给控制页。
                 val reply = responder
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
@@ -369,11 +373,10 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
                                 val url = data?.get("url")?.asString ?: ""
                                 if (url.matches(Regex("^(ws://|wss://).+$"))) {
                                     Pref.saveServerAddress(url)
-                                    mPcConnectedUrl = url
                                     DevPlugin.connect(url)
                                     reply?.invoke("connect_compute", JsonObject().apply {
                                         addProperty("ok", true)
-                                        addProperty("state", DevPlugin.currentState.state)
+                                        addProperty("state", DevPlugin.currentPcState.state)
                                         addProperty("url", url)
                                     })
                                 } else {
@@ -385,8 +388,9 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
                                 }
                             }
                             "disconnect" -> {
-                                if (mPcConnectedUrl != null) {
-                                    mPcConnectedUrl = null
+                                // 以 PC 客户端实际状态为准：App 抽屉发起的连接也能从网页断开；
+                                // 未连电脑时不调 close，避免误关控制页连接。
+                                if (DevPlugin.currentPcState.state != DevPlugin.State.DISCONNECTED) {
                                     DevPlugin.close()
                                 }
                                 reply?.invoke("connect_compute", JsonObject().apply {
@@ -395,10 +399,10 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
                                 })
                             }
                             else -> {
-                                val st = if (mPcConnectedUrl != null) DevPlugin.currentState.state else DevPlugin.State.DISCONNECTED
+                                // 直接读独立的 PC 客户端状态快照（App 抽屉发起连接也能正确反映）
                                 reply?.invoke("connect_compute", JsonObject().apply {
                                     addProperty("ok", true)
-                                    addProperty("state", st)
+                                    addProperty("state", DevPlugin.currentPcState.state)
                                 })
                             }
                         }
@@ -552,6 +556,20 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
             } else {
                 cacheDir.delete()
                 cacheDir.mkdirs()
+            }
+        }
+        // 订阅手机→电脑的客户端连接状态，广播给所有已接入的控制页
+        // （含从 App 抽屉/扫码发起连接的场景，修复网页端状态不同步）
+        CoroutineScope(Dispatchers.IO).launch {
+            DevPlugin.pcConnectState.collect { st ->
+                val data = JsonObject().apply {
+                    addProperty("ok", true)
+                    addProperty("state", st.state)
+                    st.e?.let { addProperty("error", it.localizedMessage ?: it.message ?: "") }
+                }
+                statePushers.forEach { p ->
+                    runCatching { p(data) }
+                }
             }
         }
     }

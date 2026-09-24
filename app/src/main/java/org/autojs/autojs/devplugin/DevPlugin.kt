@@ -74,6 +74,19 @@ object DevPlugin {
      *  只能靠变量保存最近一次状态供查询（控制页 connect_compute/status 使用）。 */
     @Volatile
     var currentState: State = State(State.DISCONNECTED)
+
+    /** 手机→电脑（WS 客户端）连接的独立状态。旧实现复用 currentState，而控制页接入手机时
+     *  Connection.handle 也会 emit CONNECTED，导致"连接电脑"状态被控制页连接污染；
+     *  App 抽屉发起的连接网页端也读不到。 */
+    @Volatile
+    var currentPcState: State = State(State.DISCONNECTED)
+    private val _pcConnectState = MutableSharedFlow<State>(extraBufferCapacity = 16)
+    val pcConnectState = _pcConnectState.asSharedFlow()
+    private fun emitPcState(state: State) {
+        currentPcState = state
+        _pcConnectState.tryEmit(state)
+    }
+
     val isActive get() = connection?.isActive ?: false
     private val bytesMap = HashMap<String, Bytes>()
     private val requiredBytesCommands = HashMap<String, JsonObject>()
@@ -103,6 +116,7 @@ object DevPlugin {
     suspend fun connect(url: String) {
         withContext(Dispatchers.IO) {
             emitState(State(State.CONNECTING))
+            emitPcState(State(State.CONNECTING))
             try {
                 client.connect(
                     url
@@ -111,6 +125,7 @@ object DevPlugin {
                 }
             } catch (e: Exception) {
                 emitState(State(State.CONNECTION_FAILED, e))
+                emitPcState(State(State.CONNECTION_FAILED, e))
                 client.close()
                 e.printStackTrace()
             }
@@ -173,6 +188,8 @@ object DevPlugin {
         private var serverUrl: String? = null
     ) {
         private var lastPongId = -1L
+        /** 本连接注册的控制页状态推送回调（仅服务端连接），onFinally 时注销。 */
+        private var statePusher: ((JsonObject) -> Unit)? = null
         val isActive get() = session.isActive
 
         suspend fun init() {
@@ -187,6 +204,15 @@ object DevPlugin {
 
         suspend fun WebSocketSession.handle() {
             emitState(State(State.CONNECTED))
+            // 控制页连接（serverUrl==null）注册状态推送；手机→电脑的客户端连接不注册，
+            // 避免向电脑端桌面版发送它不认识的 connect_compute 帧。
+            if (serverUrl == null) {
+                val pusher: (JsonObject) -> Unit = { d ->
+                    CoroutineScope(Dispatchers.Main).launch { respond("connect_compute", d) }
+                }
+                statePusher = pusher
+                responseHandler.registerPusher(pusher)
+            }
             withContext(Dispatchers.IO) {
                 launch {
                     mapToData(
@@ -421,6 +447,7 @@ object DevPlugin {
                 onFinally = {
                     Log.i(TAG, "onFinally")
                     emitDisconnect(this)
+                    statePusher?.let { responseHandler.unregisterPusher(it) }
                 }
             )
 
@@ -453,6 +480,9 @@ object DevPlugin {
 
         suspend fun emitState(state: State) {
             currentState = state
+            // 仅手机→电脑的客户端连接（serverUrl 非空）更新 PC 状态，
+            // 控制页接入产生的 CONNECTED/DISCONNECTED 不污染"连接电脑"状态。
+            if (serverUrl != null) emitPcState(state)
             if (connection === this) _connectState.emit(state)
         }
     }

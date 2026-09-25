@@ -121,77 +121,25 @@ class OnnxWrapper(modelPath: String) {
         }
     }
 
-    // 解析 Python 字典格式 - 完全重写版本
+    // 解析 Python 字典格式 - 正则版本（修复多位数索引被重复解析的 bug）
     private fun parsePythonDict(value: String): List<String> {
         return try {
-            Log.d("OnnxWrapper", "解析Python字典: $value")
-            
-            val namesMap = mutableMapOf<Int, String>()
-            var currentIndex = -1
-            var currentName = StringBuilder()
-            var inString = false
-            var inKey = true
-            var stringQuoteChar = ' '
-            
-            // 手动解析字典格式
-            for (i in value.indices) {
-                val char = value[i]
-                
-                when {
-                    // 检测键的开始（数字）
-                    inKey && char.isDigit() -> {
-                        currentIndex = char.toString().toInt()
-                        // 处理多位数
-                        var j = i + 1
-                        while (j < value.length && value[j].isDigit()) {
-                            currentIndex = currentIndex * 10 + value[j].toString().toInt()
-                            j++
-                        }
-                        Log.d("OnnxWrapper", "找到索引: $currentIndex")
-                    }
-                    // 检测键值分隔符
-                    inKey && char == ':' -> {
-                        inKey = false
-                        Log.d("OnnxWrapper", "切换到值解析")
-                    }
-                    // 检测字符串开始
-                    !inKey && !inString && (char == '\'' || char == '"') -> {
-                        inString = true
-                        stringQuoteChar = char
-                        currentName = StringBuilder()
-                        Log.d("OnnxWrapper", "开始解析字符串值")
-                    }
-                    // 检测字符串结束
-                    !inKey && inString && char == stringQuoteChar -> {
-                        inString = false
-                        inKey = true
-                        
-                        val name = currentName.toString()
-                        if (currentIndex != -1 && name.isNotEmpty()) {
-                            namesMap[currentIndex] = name
-                            Log.d("OnnxWrapper", "添加类别: $currentIndex -> $name")
-                        }
-                        
-                        currentIndex = -1
-                        Log.d("OnnxWrapper", "完成解析字符串值")
-                    }
-                    // 在字符串中收集字符
-                    !inKey && inString -> {
-                        currentName.append(char)
-                    }
-                    // 跳过空格和逗号
-                    char.isWhitespace() || char == ',' -> {
-                        // 忽略空白和分隔符
-                    }
+            Log.d("OnnxWrapper", "解析Python字典(正则): $value")
+
+            // 匹配 数字: '名称' 或 数字: "名称"，正确处理多位数索引
+            val namesMap = sortedMapOf<Int, String>()
+            val regex = Regex("""(\d+)\s*:\s*['"]([^'"]*)['"]""")
+            regex.findAll(value).forEach { match ->
+                val idx = match.groupValues[1].toInt()
+                val name = match.groupValues[2]
+                if (name.isNotEmpty()) {
+                    namesMap[idx] = name
                 }
             }
-            
+
             Log.d("OnnxWrapper", "总共找到 ${namesMap.size} 个类别")
-            
-            // 按索引排序返回
-            val sortedNames = namesMap.toSortedMap().values.toList()
+            val sortedNames = namesMap.values.toList()
             Log.d("OnnxWrapper", "排序后的类别: ${sortedNames.joinToString()}")
-            
             sortedNames
         } catch (e: Exception) {
             Log.w("OnnxWrapper", "Failed to parse Python dict: $value", e)

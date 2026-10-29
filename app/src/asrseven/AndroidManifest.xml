@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- asrseven 渠道：图标用本渠道的大脑图标（覆盖 main 的 @drawable/autojs_logo 机器人图） -->
+    <application
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        tools:replace="android:icon,android:roundIcon" />
+
+</manifest>

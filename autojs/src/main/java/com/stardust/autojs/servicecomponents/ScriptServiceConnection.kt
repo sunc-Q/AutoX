@@ -10,6 +10,7 @@ import android.os.Debug
 import android.os.Handler
 import android.os.IBinder
 import android.util.Log
+import com.google.gson.Gson
 import com.stardust.app.GlobalAppContext
 import com.stardust.autojs.IndependentScriptService
 import com.stardust.autojs.core.console.ConsoleImpl
@@ -119,6 +120,16 @@ class ScriptServiceConnection : ServiceConnection {
             }
         })
         send()
+    }
+
+    /** 取 :script 进程里全局日志的最近 limit 条（控制台回放用）。 */
+    suspend fun getAllScriptLogs(limit: Int): List<LogEntry> = sendBinder {
+        action = ScriptBinder.Action.GET_ALL_LOGS.id
+        data.writeInt(limit)
+        send()
+        reply!!.readException()
+        val json = reply.readString() ?: "[]"
+        return@sendBinder gson.fromJson(json, Array<LogEntry>::class.java).asList()
     }
 
     suspend fun getMemoryInfo(): Debug.MemoryInfo = sendBinder {
@@ -243,6 +254,7 @@ class ScriptServiceConnection : ServiceConnection {
 
     companion object {
         private const val TAG = "ScriptServiceConnection"
+        private val gson = Gson()
         val GlobalConnection by lazy { ScriptServiceConnection() }
     }
 }

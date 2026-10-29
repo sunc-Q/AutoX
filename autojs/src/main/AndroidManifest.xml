@@ -22,6 +22,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- 录音与内录 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- 蓝牙 -->
     <uses-permission
         android:name="android.permission.BLUETOOTH"
@@ -97,6 +100,11 @@
             android:name="com.stardust.autojs.core.image.capture.CaptureForegroundService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection"
+            android:process="@string/text_script_process_name" />
+        <service
+            android:name="com.stardust.autojs.core.audio.AudioRecordService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|mediaProjection"
             android:process="@string/text_script_process_name" />
         <service
             android:name="com.stardust.enhancedfloaty.FloatyService"

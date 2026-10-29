@@ -50,6 +50,9 @@ abstract class AutoJs protected constructor(protected val application: Applicati
         AccessibilityNotificationObserver(mContext)
     private val mScreenCaptureRequester: ScreenCaptureRequester = ScreenCaptureManager()
 
+    val screenCaptureRequester: ScreenCaptureRequester
+        get() = mScreenCaptureRequester
+
     val layoutInspector: LayoutInspector = LayoutInspector(mContext)
     val scriptEngineManager: ScriptEngineManager = ScriptEngineManager(mContext)
     val uiHandler: UiHandler = UiHandler(mContext)

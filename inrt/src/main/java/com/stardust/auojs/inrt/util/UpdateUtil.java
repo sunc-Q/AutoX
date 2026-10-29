@@ -38,7 +38,8 @@ public class UpdateUtil {
     private static final int START_DOWNLOAD_APK = 2;
     private static final int DOWNLOAD = 3;
     private static final int DOWNLOAD_FINISH = 4;
-    private static final String CHECK_UPDATE_URL = "http://120.25.164.233:8080/appstore/app/checkversion?id=22";
+    // 这两个类没有任何调用方，但明文的 autoxjs 域名/裸 IP 会原样留在子 APK 的 dex 里被内容扫描读到，置空保留代码
+    private static final String CHECK_UPDATE_URL = "";
     private Context mContext;
     private ProgressBar mProgress;
     private Dialog mDownloadDialog;

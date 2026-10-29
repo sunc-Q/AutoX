@@ -86,6 +86,10 @@ dependencies {
     implementation("cz.adaptech:tesseract4android:4.1.1")
     implementation(libs.bundles.mlkit)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
+    // sherpa-onnx 1.13.8（static-link onnxruntime 变体，避免与上面的 libonnxruntime.so 重名冲突）。
+    // AGP 禁止 library 模块直接依赖本地 .aar，故按 Maven 布局装进了 mavenLocal：
+    // ~/.m2/repository/com/k2fsa/sherpa-onnx-android/1.13.8/（源：k2-fsa GitHub release）
+    implementation("com.k2fsa:sherpa-onnx-android:1.13.8")
 }
 tasks.register<Exec>("buildV7Api") {
     group = "build"

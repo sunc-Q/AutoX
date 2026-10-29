@@ -22,11 +22,13 @@ public class Pref {
 
     private static final SharedPreferences DISPOSABLE_BOOLEAN = GlobalAppContext.get().getSharedPreferences("DISPOSABLE_BOOLEAN", Context.MODE_PRIVATE);
     private static final String KEY_SERVER_ADDRESS = "KEY_SERVER_ADDRESS";
+    private static final String KEY_USB_DEBUG_PORT = "KEY_USB_DEBUG_PORT";
     private static final String KEY_SHOULD_SHOW_ANNUNCIATION = "KEY_SHOULD_SHOW_ANNUNCIATION";
     private static final String KEY_FLOATING_MENU_SHOWN = "KEY_FLOATING_MENU_SHOWN";
     private static final String KEY_EDITOR_THEME = "editor.theme";
     private static final String KEY_EDITOR_TEXT_SIZE = "editor.textSize";
     private static final String KEY_EDITOR_NEW = "KEY_EDITOR_NEW";
+    private static final String KEY_REMOTE_SERVICE_NOTIFY = "KEY_REMOTE_SERVICE_NOTIFY";
 
     public static boolean getEditor() {
         return def().getBoolean(KEY_EDITOR_NEW, true);
@@ -108,6 +110,14 @@ public class Pref {
         def().edit().putString(KEY_SERVER_ADDRESS, address).apply();
     }
 
+    public static int getUsbDebugPortOrDefault(int defaultPort) {
+        return def().getInt(KEY_USB_DEBUG_PORT, defaultPort);
+    }
+
+    public static void saveUsbDebugPort(int port) {
+        def().edit().putInt(KEY_USB_DEBUG_PORT, port).apply();
+    }
+
     public static boolean shouldShowAnnunciation() {
         return getDisposableBoolean(KEY_SHOULD_SHOW_ANNUNCIATION, true);
     }
@@ -149,6 +159,14 @@ public class Pref {
 
     public static boolean isFloatingMenuShown() {
         return def().getBoolean(KEY_FLOATING_MENU_SHOWN, false);
+    }
+
+    public static boolean isRemoteServiceNotifyEnabled() {
+        return def().getBoolean(KEY_REMOTE_SERVICE_NOTIFY, true);
+    }
+
+    public static void setRemoteServiceNotifyEnabled(boolean enabled) {
+        def().edit().putBoolean(KEY_REMOTE_SERVICE_NOTIFY, enabled).apply();
     }
 
     public static boolean isAutoBack() {

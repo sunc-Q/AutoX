@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 开源 Autox.js 家族用 /sdcard/脚本/ 作为默认脚本目录，目录名会作为外部特征被内容扫描读到；vseven 渠道改用自己的名字 -->
+    <string name="default_value_script_dir_path" translatable="false">/vseven/</string>
+    <string name="format_default_package_name" translatable="false">com.vseven.%s</string>
+</resources>

@@ -1,7 +1,6 @@
 package com.aiselp.autox.ui.material3
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
@@ -95,11 +94,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.autojs.autojs.Pref
 import org.autojs.autojs.devplugin.DevPlugin
+import org.autojs.autojs.devplugin.DevPluginKeepAliveService
 import org.autojs.autojs.tool.WifiTool
 import org.autojs.autojs.ui.floating.FloatyWindowManger
 import org.autojs.autojs.ui.main.drawer.DrawerViewModel
 import org.autojs.autojs.ui.settings.SettingsActivity
 import org.autojs.autoxjs.R
+import kotlin.system.exitProcess
 
 private const val TAG = "DrawerPage"
 private const val URL_DEV_PLUGIN = "https://github.com/kkevsekk1/Auto.js-VSCode-Extension"
@@ -132,6 +133,7 @@ fun DrawerPage(drawerState: DrawerState) {
                 StableModeSwitch()
                 //NotificationUsageRightSwitch()
                 ForegroundServiceSwitch()
+                RemoteServiceNotifySwitch()
                 //UsageStatsPermissionSwitch()
                 //ShizukuPermissionSwitch()
                 //(drawerState = drawerState)
@@ -147,6 +149,7 @@ fun DrawerPage(drawerState: DrawerState) {
                 RemoteConsoleAddress()
                 ConnectComputerSwitch()
                 USBDebugSwitch()
+                UsbDebugPortSetting()
 
                 MemoryUsage()
                 SwitchTimedTaskScheduler()
@@ -521,6 +524,29 @@ private fun ForegroundServiceSwitch() {
 }
 
 @Composable
+private fun RemoteServiceNotifySwitch() {
+    val context = LocalContext.current
+    val notifyEnabled = remember { mutableStateOf(Pref.isRemoteServiceNotifyEnabled()) }
+    Watch(notifyEnabled) {
+        Pref.setRemoteServiceNotifyEnabled(notifyEnabled.value)
+        // 重新下发一次：开=拉起前台服务通知，关=撤掉前台状态但服务与端口继续运行
+        DevPluginKeepAliveService.start(context)
+    }
+    Column {
+        SettingOptionSwitch(
+            icon = Icons.Default.Notifications,
+            title = "远程服务通知",
+            value = notifyEnabled,
+            tint = Color(0xFF331E4B)
+        )
+        Text(
+            text = "关闭后不显示常驻通知；App 退到后台或锁屏时系统可能回收进程，远程端口会断开",
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
 private fun UsageStatsPermissionSwitch() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -647,13 +673,15 @@ private fun AutoBackupSwitch() {
 private fun RemoteConsoleAddress() {
     val context = LocalContext.current
     var show by remember { mutableStateOf(false) }
-    val ip = remember { WifiTool.getWifiAddress(context) ?: "" }
-    val base = remember(ip) { if (ip.isEmpty()) "" else "http://$ip:${DevPlugin.SERVER_PORT}" }
-    val ws = remember(ip) { if (ip.isEmpty()) "" else "ws://$ip:${DevPlugin.SERVER_PORT}" }
     TextButton(onClick = { show = true }) {
         Text(text = "远程控制台（Web/WS 地址）")
     }
     if (show) {
+        // 打开时再读 IP 和端口：抽屉内容会留在组合里，提前算好的值不会随改端口刷新
+        val ip = remember { WifiTool.getWifiAddress(context) ?: "" }
+        val port = DevPlugin.serverPort
+        val base = if (ip.isEmpty()) "" else "http://$ip:$port"
+        val ws = if (ip.isEmpty()) "" else "ws://$ip:$port"
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { show = false },
             title = { Text("远程控制台") },
@@ -820,6 +848,65 @@ fun USBDebugSwitch() {
             }
         }
     )
+}
+
+@Composable
+private fun UsbDebugPortSetting() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var show by remember { mutableStateOf(false) }
+    var port by remember { mutableStateOf(DevPlugin.serverPort) }
+    TextButton(onClick = { show = true }) {
+        Text(text = "远程控制端口：$port")
+    }
+    if (show) {
+        var input by remember { mutableStateOf(port.toString()) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { show = false },
+            title = { Text("远程控制端口") },
+            text = {
+                Column {
+                    TextField(
+                        value = input,
+                        onValueChange = { input = it.filter(Char::isDigit).take(5) },
+                        singleLine = true,
+                        label = { Text("1024 - 65535") }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "保存后若服务正在运行会自动重启，浏览器里的旧地址需要重新打开。",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val newPort = input.toIntOrNull()
+                    if (newPort == null || newPort !in 1024..65535) {
+                        // toast 是 suspend 扩展函数，且这里要让对话框留着好改输入
+                        scope.launch { "端口需在 1024 - 65535 之间".toast(context) }
+                    } else {
+                        show = false
+                        val wasRunning = DevPlugin.isUSBDebugServiceActive
+                        scope.launch {
+                            Pref.saveUsbDebugPort(newPort)
+                            port = newPort
+                            if (!wasRunning) return@launch
+                            try {
+                                DevPlugin.restartUSBDebug()
+                                // 重新拉起前台服务只为让常驻通知显示新端口
+                                DevPluginKeepAliveService.start(context)
+                            } catch (e: Exception) {
+                                DevPluginKeepAliveService.stop(context)
+                                "端口 $newPort 不可用，服务已停止：${e.localizedMessage}".toast(context)
+                            }
+                        }
+                    }
+                }) { Text("确定") }
+            },
+            dismissButton = { TextButton(onClick = { show = false }) { Text("取消") } }
+        )
+    }
 }
 
 @Composable
@@ -994,9 +1081,21 @@ private fun BottomButtons() {
     }
 }
 
+/** 抽屉「退出」：停掉 App 自身的服务后杀掉主进程，接近设置里的「强行停止」（原来只 finish 窗口）。 */
 fun exitCompletely(context: Context) {
+    // 让 :script 停掉所有脚本与服务并自行退出（它在回完 binder 后才自杀）
     EngineController.appExit()
-    if (context is Activity) context.finish()
+    FloatyWindowManger.hideCircularMenu()
+    // 必须显式停止保活服务，否则 START_STICKY 会在进程被杀后把它重新拉起来
+    context.stopService(Intent(context, DevPluginKeepAliveService::class.java))
+    NotificationManagerCompat.from(context).cancelAll()
+    Thread {
+        try {
+            Thread.sleep(800)
+        } catch (_: InterruptedException) {
+        }
+        exitProcess(0)
+    }.start()
 }
 
 @Composable
@@ -1047,7 +1146,8 @@ fun getUrl(host: String): String {
         url1 = "ws://${url1}"
     }
     if (!url1.matches(Regex("^.+://.+?:.+$"))) {
-        url1 += ":${DevPlugin.SERVER_PORT}"
+        // 这是手机去连电脑的地址，用电脑侧固定端口，与本机监听端口无关
+        url1 += ":${DevPlugin.COMPUTER_SERVER_PORT}"
     }
     return url1
 }

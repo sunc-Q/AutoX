@@ -8,6 +8,7 @@ import androidx.preference.PreferenceManager;
 
 import com.stardust.app.GlobalAppContext;
 
+import org.autojs.autoxjs.inrt.BuildConfig;
 import org.autojs.autoxjs.inrt.R;
 
 import java.io.File;
@@ -79,7 +80,7 @@ public class Pref {
 
 
     public static String getScriptDirPath() {
-        String dir = "/脚本/";
+        String dir = BuildConfig.SCRIPT_DIR;
         return new File(Environment.getExternalStorageDirectory(), dir).getPath();
     }
 

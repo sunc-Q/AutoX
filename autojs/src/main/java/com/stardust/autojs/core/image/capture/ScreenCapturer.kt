@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference
  * From [TonyJiangWJ/Auto.js](https://github.com/TonyJiangWJ/Auto.js)
  */
 class ScreenCapturer(
-    private val mediaProjection: MediaProjection,
+    val mediaProjection: MediaProjection,
     orientation: Int = 0,
     private val screenDensity: Int = ScreenMetrics.getDeviceScreenDensity(),
     private val mHandler: Handler = Handler(Looper.getMainLooper())

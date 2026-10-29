@@ -16,6 +16,27 @@ java {
     }
 }
 
+// 品牌变体（vseven/sseven/goqi/asrseven）共用的加固模板：由 :inrt 的 suncV7 风味现造，产物落在构建目录、不入库
+val brandFlavors = setOf("suncV7", "sseven", "goqi", "asrseven", "zlwseven", "rbtseven")
+val brandTemplateAssets = layout.buildDirectory.dir("brandTemplateAssets")
+val syncBrandTemplateApk = tasks.register("syncBrandTemplateApk") {
+    group = "build"
+    description = "构建 :inrt:assembleSuncV7Release 并把它作为品牌变体的 assets/template.apk"
+    dependsOn(":inrt:assembleSuncV7Release")
+    val outDir = File(rootDir, "inrt/build/outputs/apk/suncV7/release")
+    doLast {
+        val apk = outDir.listFiles { f: File -> f.isFile && f.name.endsWith(".apk") }
+            ?.maxByOrNull { it.lastModified() }
+            ?: error("未找到 vseven 模板产物，检查 $outDir（:inrt 的 suncV7 风味是否构建成功）")
+        copy {
+            from(apk)
+            into(brandTemplateAssets.get().asFile)
+            rename(apk.name, "template.apk")
+        }
+        logger.info("vseven 模板: ${apk.name} -> assets/template.apk")
+    }
+}
+
 android {
     namespace = "org.autojs.autoxjs"
     compileSdk = versions.compile
@@ -56,7 +77,11 @@ android {
             // Resets the list of ABIs that Gradle should create APKs for to none.
             reset()
             // Specifies a list of ABIs that Gradle should create APKs for.
-            include("arm64-v8a", "x86_64")
+            // 单 ABI 构建：-Pabis=arm64-v8a（只产出 arm64，省掉 x86_64 的打包时间）
+            include(
+                *((project.findProperty("abis") as String?)?.split(",")?.filter { it.isNotBlank() }
+                    ?.toTypedArray() ?: arrayOf("arm64-v8a", "x86_64"))
+            )
             // Specifies that we do not want to also generate a universal APK that includes all ABIs.
             isUniversalApk = false
         }
@@ -122,6 +147,7 @@ android {
             versionCode = versions.appVersionCode
             versionName = versions.appVersionName
             buildConfigField("String", "CHANNEL", "\"common\"")
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29317")
             manifestPlaceholders.putAll(mapOf("appName" to "@string/app_name"))
         }
         create("v7") {
@@ -129,23 +155,71 @@ android {
             versionCode = versions.devVersionCode
             versionName = versions.devVersionName
             buildConfigField("String", "CHANNEL", "\"v7\"")
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29317")
             manifestPlaceholders.putAll(mapOf("appName" to "Autox.js v7"))
         }
         create("v7_mini") {
             applicationIdSuffix = ".v7"
             buildConfigField("String", "CHANNEL", "\"v7\"")
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29317")
             manifestPlaceholders.putAll(mapOf("appName" to "Autox.js v7"))
         }
         create("suncV7") {
-            applicationIdSuffix = ".suncV7"
+            applicationId = "com.sunc.vseven"
             versionCode = 1000
             versionName = "1.0.0"
             buildConfigField("String", "CHANNEL", "\"suncV7\"")
-            manifestPlaceholders.putAll(mapOf("appName" to "suncV7"))
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29317")
+            manifestPlaceholders.putAll(mapOf("appName" to "vseven"))
+        }
+        // 共存版：包名不同即可同机安装；默认端口/脚本目录也各自独立，避免几个实例同时跑时互相抢
+        create("sseven") {
+            applicationId = "com.sunc.sseven"
+            versionCode = 1000
+            versionName = "1.0.0"
+            buildConfigField("String", "CHANNEL", "\"sseven\"")
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29318")
+            manifestPlaceholders.putAll(mapOf("appName" to "sseven"))
+        }
+        create("goqi") {
+            applicationId = "com.rumy.goqi"
+            versionCode = 1000
+            versionName = "1.0.0"
+            buildConfigField("String", "CHANNEL", "\"goqi\"")
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29319")
+            manifestPlaceholders.putAll(mapOf("appName" to "goqi"))
+        }
+        create("asrseven") {
+            applicationId = "com.sunc.asrseven"
+            versionCode = 1000
+            versionName = "1.0.0"
+            buildConfigField("String", "CHANNEL", "\"asrseven\"")
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29320")
+            manifestPlaceholders.putAll(mapOf("appName" to "Asrseven"))
+        }
+        create("zlwseven") {
+            applicationId = "com.sunc.zlwseven"
+            versionCode = 1000
+            versionName = "1.0.0"
+            buildConfigField("String", "CHANNEL", "\"zlwseven\"")
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29321")
+            manifestPlaceholders.putAll(mapOf("appName" to "zlwseven"))
+        }
+        create("rbtseven") {
+            applicationId = "com.sunc.rbtseven"
+            versionCode = 1000
+            versionName = "1.0.0"
+            buildConfigField("String", "CHANNEL", "\"rbtseven\"")
+            buildConfigField("int", "DEFAULT_SERVER_PORT", "29322")
+            manifestPlaceholders.putAll(mapOf("appName" to "rbtseven"))
         }
     }
     applicationVariants.all {
         val variant = this
+        if (variant.flavorName in brandFlavors) {
+            // 模板必须在合并 assets 前就位：这里不像老逻辑那样「文件在就不重建」，不会有陈旧副本
+            mergeAssetsProvider.configure { dependsOn(syncBrandTemplateApk) }
+        }
         if (variant.flavorName == "v7_mini") {
             mergeAssetsProvider.configure {
                 doLast {
@@ -153,6 +227,27 @@ android {
                         fileTree(outputDir) {
                             include(
                                 "codeeditor/**/*", "template.apk"
+                            )
+                        })
+                }
+            }
+        }
+        if (variant.flavorName in brandFlavors && variant.buildType.name == "release") {
+            mergeAssetsProvider.configure {
+                doLast {
+                    // assets 里的明文样本会被分发侧静态内容扫描直接读走，命中病毒/键盘监听/仿冒品牌类规则
+                    // 注意：template.apk 与 autox-default.jks 不在这里删——打包成子 APK 的链路要保留，
+                    // 前者由 syncBrandTemplateApk 换成加固过的 :inrt suncV7 模板，后者是签名用的默认库
+                    delete(
+                        fileTree(outputDir) {
+                            include(
+                                "binary/root_automator",
+                                "sample/v6/复杂界面/WannaCry(仅为娱乐).js",
+                                "sample/v6/事件与按键、触摸监听/按键监听.js",
+                                "sample/v6/事件与按键、触摸监听/通知监听.js",
+                                "sample/v6/多媒体/免root屏幕录制.js",
+                                "sample/v6/图片与图色处理/找到QQ红点位置.js",
+                                "sample/v6/应用/应用工具.js"
                             )
                         })
                 }
@@ -173,6 +268,12 @@ android {
             res.srcDirs("src/main/res", "src/main/res-i18n")
             aidl {
                 srcDirs("src/main/aidl", "src/main/java")
+            }
+        }
+        // flavor 的 assets 优先级高于 main，同名 template.apk 会盖掉 src/main/assets 里那份开源模板
+        brandFlavors.forEach { flavor ->
+            getByName(flavor) {
+                assets.srcDir(brandTemplateAssets)
             }
         }
     }

@@ -4,7 +4,7 @@
     <string name="text_error_exit">退出软件</string>
     <string name="text_error_save">已保存到路径:%1$s</string>
 
-    <string name="app_name" translatable="false">Autox.js</string>
+    <string name="app_name" translatable="false">seven.mjs</string>
     <string name="text_broadcast_action_prefix" translatable="false">android.intent.action.</string>
     <string name="text_en_import" translatable="false">import</string>
     <string name="dex_crcs" translatable="false">2184044085\n3566596539\npJTCkHuhypD9i3UBQ55XQw==RtXsgCTVFA7VYhLeF1TSkg==</string>

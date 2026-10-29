@@ -420,6 +420,8 @@ class ApkBuilder(
 
     private inner class ManifestEditorWithAuthorities(manifestInputStream: InputStream) :
         ManifestEditor(manifestInputStream) {
+        /** 模板自己的 applicationId，遍历到 manifest/package 时抓到，用于改写 authority 前缀。 */
+        private var templateAppId: String? = null
         override fun onAttr(attr: AxmlWriter.Attr) {
             if (projectConfig!!.launchConfig.isHideLauncher && attr.value is StringItem && "android.intent.category.LAUNCHER" == (attr.value as StringItem).data) {
                 Log.e("attr", "onAttr: " + (attr.value as StringItem).data + "----" + "")
@@ -430,7 +432,12 @@ class ApkBuilder(
                 attr.value = noDisplayThemeId
             } else if ("authorities" == attr.name.data && attr.value is StringItem) {
                 val item = attr.value as StringItem
-                item.data = item.data.replace(inrtAppId, projectConfig!!.packageName!!)
+                // 模板换了 applicationId（vseven 模板是 com.sunc.vseven.inrt），不能再只认写死的那个常量，
+                // 否则子 APK 的 FileProvider authority 仍指向模板包名，装第二个子 APK 就会因 authority 冲突失败
+                item.data = item.data.replace(templateAppId ?: inrtAppId, projectConfig!!.packageName!!)
+            } else if ("package" == attr.name.data && attr.value is StringItem) {
+                templateAppId = (attr.value as StringItem).data  // 先记下模板原包名，super 会把它改成子包名
+                super.onAttr(attr)
             } else {
                 super.onAttr(attr)
             }

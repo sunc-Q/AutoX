@@ -89,6 +89,9 @@ class ScreenCaptureManager : ScreenCaptureRequester {
         serviceConnected.await()
     }
 
+    override fun getAliveMediaProjection(): MediaProjection? =
+        if (screenCapture?.available == true) mediaProjection else null
+
     override fun requestScreenCaptureLegacy(context: Context, orientation: Int): ScriptPromiseAdapter {
         val promiseAdapter = ScriptPromiseAdapter()
         var retryCount = 0

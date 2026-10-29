@@ -6,6 +6,7 @@ import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.stardust.app.GlobalAppContext
 import com.stardust.app.GlobalAppContext.toast
+import com.stardust.autojs.core.console.LogEntry
 import com.stardust.autojs.project.ProjectConfig
 import com.stardust.autojs.servicecomponents.BinderScriptListener
 import com.stardust.autojs.servicecomponents.EngineController
@@ -159,6 +160,29 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
                         add("tasks", tasks)
                         add("executions", execs)
                     })
+                }
+                true
+            }
+            .handler("get_logs") { data: JsonObject? ->
+                // 全局日志只存在于 :script 进程的 globalConsole；主进程的镜像从订阅那一刻才有，
+                // 所以控制页要看握手前的内容必须向子进程取历史。
+                val limit = if (data != null && data.has("limit")) data["limit"].asInt else 500
+                val reply = responder
+                CoroutineScope(Dispatchers.Main).launch {
+                    val lines = JsonArray()
+                    val list = try {
+                        EngineController.getAllScriptLogs(limit).await()
+                    } catch (e: Exception) {
+                        emptyList<LogEntry>()
+                    }
+                    list.forEach { l ->
+                        lines.add(JsonObject().apply {
+                            addProperty("id", l.id)
+                            addProperty("level", l.level)
+                            addProperty("content", l.content)
+                        })
+                    }
+                    reply?.invoke("logs", JsonObject().apply { add("lines", lines) })
                 }
                 true
             }

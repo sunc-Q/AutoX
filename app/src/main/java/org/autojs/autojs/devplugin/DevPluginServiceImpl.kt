@@ -23,7 +23,8 @@ class DevPluginServiceImpl : Service() {
             url1 = "ws://${url1}"
         }
         if (!url1.matches(Regex("^.+://.+?:.+$"))) {
-            url1 += ":${DevPlugin.SERVER_PORT}"
+            // AIDL 的 connectToComputer 是手机连电脑，端口跟本机监听端口无关
+            url1 += ":${DevPlugin.COMPUTER_SERVER_PORT}"
         }
         return url1
     }

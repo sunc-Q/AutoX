@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 共存版：脚本目录与子 APK 包名模板都独立，避免和 vseven/sseven 互相看到对方的脚本或产物 -->
+    <string name="default_value_script_dir_path" translatable="false">/goqi/</string>
+    <string name="format_default_package_name" formatted="true" translatable="false">com.goqi.%s</string>
+</resources>

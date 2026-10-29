@@ -4,6 +4,7 @@ import android.os.RemoteException
 import android.util.Log
 import com.aiselp.autox.engine.NodeScriptEngine
 import com.stardust.autojs.AutoJs
+import com.stardust.autojs.core.console.LogEntry
 import com.stardust.autojs.execution.ExecutionConfig
 import com.stardust.autojs.project.ProjectConfig
 import com.stardust.autojs.script.JavaScriptSource
@@ -110,6 +111,11 @@ object EngineController {
 
     fun getAllScriptTasks(): Deferred<MutableList<TaskInfo>> = scope.async {
         return@async serviceConnection.getAllScriptTasks()
+    }
+
+    /** 全局日志历史，供远程控制台握手后回放。 */
+    fun getAllScriptLogs(limit: Int): Deferred<List<LogEntry>> = scope.async {
+        return@async serviceConnection.getAllScriptLogs(limit)
     }
 
     fun stopScript(id: Int) = scope.launch {

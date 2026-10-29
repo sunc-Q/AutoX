@@ -31,7 +31,7 @@ import java.util.List;
 public class FeatureActivity extends Activity {
 	private WebView webView;
 	private ProgressBar mProgressBar;
-	private String url ="http://mk.autoxjs.com/pages/ykapp/choiseFeature";
+	private String url ="";
 	MarketJavascriptInterface marketJavascriptInterface;
 
 

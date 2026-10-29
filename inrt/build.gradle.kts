@@ -21,6 +21,8 @@ android {
 //        multiDexEnabled = true
 //        buildConfigField("boolean","isMarket","true") // 这是有注册码的版本
         buildConfigField("boolean", "isMarket", "false")
+        // 默认脚本目录：开源 Autox.js 用 /sdcard/脚本/，目录名本身是外部特征，suncV7 风味覆盖成 /vseven/
+        buildConfigField("String", "SCRIPT_DIR", "\"/脚本/\"")
         javaCompileOptions {
             annotationProcessorOptions {
                 arguments["resourcePackageName"] = applicationId.toString()
@@ -76,6 +78,16 @@ android {
             }
             ndk.abiFilters.add("")
         }
+        // 打包成子 APK 用的 vseven 模板：与 template 同样瘦身，但换掉一切可被内容扫描读走的家族特征
+        create("suncV7") {
+            applicationId = "com.sunc.vseven.inrt"
+            manifestPlaceholders.putAll(mapOf("appName" to "vseven"))
+            buildConfigField("String", "SCRIPT_DIR", "\"/vseven/\"")
+            packagingOptions.apply {
+                jniLibs.excludes.add("*")
+            }
+            ndk.abiFilters.add("")
+        }
     }
     sourceSets {
         named("main") {
@@ -111,7 +123,8 @@ android {
 
 android.applicationVariants.all {
     val variant = this
-    if (variant.flavorName == "template") {
+    if (variant.flavorName == "template" || variant.flavorName == "suncV7") {
+        val isVseven = variant.flavorName == "suncV7"
         mergeAssetsProvider.configure {
             doLast {
                 delete(
@@ -121,6 +134,8 @@ android.applicationVariants.all {
                             "mlkit-google-ocr-models/**/*",
                             "project/**/*"
                         )
+                        // 提权 ELF 明摆在 assets 里，是分发侧扫描的命中点；vseven 模板不带
+                        if (isVseven) include("binary/root_automator")
                     }
                 )
             }

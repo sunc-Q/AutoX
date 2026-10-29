@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 远程控制插件：前台服务保活 9317 HTTP/WS 服务，通知显示网页地址（浏览器访问 http://手机IP:9317）
+        // 远程控制插件：启动 HTTP/WS 服务；是否以前台服务保活取决于设置项「远程服务通知」
         DevPluginKeepAliveService.start(this)
         requestNotificationPermissionIfNeeded()
         WindowCompat.setDecorFitsSystemWindows(window, false)

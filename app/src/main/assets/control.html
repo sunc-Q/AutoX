@@ -187,7 +187,8 @@ let edPath = null;
 
 /* ================= WS 连接与握手 ================= */
 function connect() {
-  const url = "ws://" + location.hostname + ":9317/";
+  // 控制页与 WS 由同一 Ktor 服务提供，端口随页面走，换端口后无需改包
+  const url = "ws://" + location.hostname + ":" + (location.port || "9317") + "/";
   ws = new WebSocket(url);
   ws.onopen = () => { setConn("已连接，握手…", ""); };
   ws.onmessage = e => {
@@ -211,11 +212,13 @@ function onMsg(m) {
     handshaken = true;
     setConn("已连接 ✓", "ok");
     refreshAll();
+    fetchGlobalLogs();
     return;
   }
   if (m.type === "ping") { ws.send(JSON.stringify({ type: "pong", data: m.data })); return; }
   if (m.type === "pong") return;
   if (m.type === "log") { if (m.data && m.data.log) logLine(m.data.log); return; }
+  if (m.type === "logs") { renderHistory(m.data); return; }
   if (m.type === "list_scripts" && m.data) renderScripts(m.data);
   else if (m.type === "tasks" && m.data) renderTasks(m.data);
   else if (m.type === "timed_tasks" && m.data) renderTimedTasks(m.data);
@@ -666,6 +669,28 @@ function ccCmd(action) {
 }
 
 /* ================= 日志 ================= */
+let historyLoaded = false;
+function fetchGlobalLogs() { sendCmd("get_logs", { limit: 500 }); }
+function renderHistory(d) {
+  if (!d || !d.lines || historyLoaded) return;   // 只回放一次，重连不重复刷屏
+  historyLoaded = true;
+  const el = $("log");
+  if (d.lines.length) {
+    const tip = document.createElement("div");
+    tip.className = "t";
+    tip.textContent = "—— 以上 " + d.lines.length + " 条是设备上的全局日志历史（实时日志在其下方继续滚动）——";
+    el.insertBefore(tip, el.firstChild);
+    for (let i = d.lines.length - 1; i >= 0; i--) {   // 倒序插入，最终按时间正序排列
+      const l = d.lines[i];
+      const line = document.createElement("div");
+      line.textContent = l.content;
+      if (l.level >= 6) line.className = "e";
+      else if (l.level >= 5) line.className = "t";
+      el.insertBefore(line, el.firstChild);
+    }
+  }
+  el.scrollTop = 0;
+}
 function logLine(text) {
   const el = $("log");
   const line = document.createElement("div");
@@ -674,7 +699,7 @@ function logLine(text) {
   line.textContent = "[" + new Date().toLocaleTimeString() + "] " + text;
   el.appendChild(line);
   el.scrollTop = el.scrollHeight;
-  while (el.children.length > 500) el.removeChild(el.firstChild);
+  while (el.children.length > 1500) el.removeChild(el.firstChild);  // 历史回放会占头几百条，容量放宽
 }
 function clearLog() { $("log").innerHTML = ""; }
 

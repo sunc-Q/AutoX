@@ -17,16 +17,18 @@ import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.autojs.autojs.Pref
 import org.autojs.autoxjs.R
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
 /**
- * 9317 远程控制服务的前台保活服务。
+ * 远程控制服务的前台保活服务。
  *
  * 作用：
- * 1. 默认后台保活：以前台服务运行，App 退到后台/锁屏后 9317 服务不被系统杀掉。
- * 2. 通知显示后台网页地址：常驻通知展示 http://手机IP:9317，点击通知直接用浏览器打开控制页。
+ * 1. 默认后台保活：以前台服务运行，App 退到后台/锁屏后远程控制端口不被系统杀掉。
+ * 2. 通知显示后台网页地址：常驻通知展示 http://手机IP:端口，点击通知直接用浏览器打开控制页。
+ *    端口可在应用内修改（DevPlugin.serverPort），改完重新 start 本服务即可刷新通知。
  */
 class DevPluginKeepAliveService : Service() {
 
@@ -41,7 +43,12 @@ class DevPluginKeepAliveService : Service() {
             val intent = Intent(context, DevPluginKeepAliveService::class.java).apply {
                 action = ACTION_START
             }
-            context.startForegroundService(intent)
+            // 关闭通知时不能走 startForegroundService：系统要求 5 秒内必须 startForeground，否则崩溃
+            if (Pref.isRemoteServiceNotifyEnabled()) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         }
 
         fun stop(context: Context) {
@@ -82,18 +89,23 @@ class DevPluginKeepAliveService : Service() {
                 stopForegroundCompat()
                 CoroutineScope(Dispatchers.IO).launch {
                     DevPlugin.stopUSBDebug()
-                    Log.i(TAG, "9317 服务已停止")
+                    Log.i(TAG, "远程控制服务已停止")
                 }
                 stopSelf()
             }
 
             else -> {
-                startForegroundCompat()
-                // 幂等启动 9317 服务：服务已运行时跳过，避免重复监听端口
+                if (Pref.isRemoteServiceNotifyEnabled()) startForegroundCompat() else stopForegroundCompat()
+                // 幂等启动远程控制服务：服务已运行时跳过，避免重复监听端口
                 if (!DevPlugin.isUSBDebugServiceActive) {
                     scope.launch {
-                        DevPlugin.startUSBDebug()
-                        Log.i(TAG, "9317 服务已启动")
+                        // 端口被占用时 bind 会抛 IOException；这里不接住就会崩整个进程
+                        try {
+                            DevPlugin.startUSBDebug()
+                            Log.i(TAG, "远程控制服务已在端口 ${DevPlugin.serverPort} 启动")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "远程控制服务启动失败: ${e.message}", e)
+                        }
                     }
                 }
             }
@@ -123,14 +135,14 @@ class DevPluginKeepAliveService : Service() {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "远程控制服务",
+            "后台服务",
             NotificationManager.IMPORTANCE_LOW
         )
-        channel.description = "9317 远程控制后台服务保活"
+        channel.description = "应用在后台运行时显示"
         channel.enableLights(false)
         manager.createNotificationChannel(channel)
 
-        val url = "http://${getLocalIp()}:${DevPlugin.SERVER_PORT}"
+        val url = "http://${getLocalIp()}:${DevPlugin.serverPort}"
         val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
@@ -142,9 +154,9 @@ class DevPluginKeepAliveService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("远程控制服务运行中")
-            .setContentText("浏览器访问 $url 控制手机")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("浏览器访问 $url 控制手机"))
+            .setContentTitle("${applicationInfo.loadLabel(packageManager)} 运行中")
+            .setContentText("浏览器服务 ${getLocalIp()}:${DevPlugin.serverPort}")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("浏览器服务 $url"))
             .setSmallIcon(R.drawable.autojs_logo)
             .setWhen(System.currentTimeMillis())
             .setContentIntent(contentIntent)

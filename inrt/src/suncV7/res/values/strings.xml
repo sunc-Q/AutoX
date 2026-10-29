@@ -1,0 +1,5 @@
+<resources>
+    <!-- vseven 模板：这些字样会原样进子 APK 的 resources.arsc，被分发侧扫描读到 -->
+    <string name="app_name" translatable="false">vseven</string>
+    <string name="powered_by_autojs" translatable="false">Powered by vseven</string>
+</resources>

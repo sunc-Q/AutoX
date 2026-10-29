@@ -132,7 +132,7 @@ public abstract class ScriptRuntime {
         device = new Device(context);
         floaty = new Floaty(uiHandler, ui, this);
         files = new Files(this);
-        media = new Media(context, this);
+        media = new Media(context, this, builder.getScreenCaptureRequester());
     }
 
     public abstract void init();

@@ -19,20 +19,20 @@ isRunning = false;
 ui.layout(
     <vertical>
         <appbar>
-            <toolbar title="免root屏幕录制" />
+            <toolbar title="系统屏幕录制" />
         </appbar>
         <Switch id="permissions" text="音频录制及存储权限" checked="true" gravity="center"/>
         <frame gravity="center">
             <text text="AutoX" gravity="center" />
         </frame>
-        <button text="免root屏幕录制" style="Widget.AppCompat.Button.Colored" id="button" />
+        <button text="系统屏幕录制" style="Widget.AppCompat.Button.Colored" id="button" />
     </vertical>
 );
 
 ui.button.click(function () {
     if (isRunning) {
         stopRecord();
-        ui.button.setText("免root屏幕录制");
+        ui.button.setText("系统屏幕录制");
     } else {
         activity.startActivityForResult(mMediaProjectionManager.createScreenCaptureIntent(), 666);
     }
@@ -57,7 +57,7 @@ ui.emitter.on("activity_result", (requestCode, resultCode, data) => {
         ui.button.setText("视频录制中(点击停止)……");
         setTimeout(function () {
             stopRecord();
-            ui.button.setText("免root屏幕录制");
+            ui.button.setText("系统屏幕录制");
         }, saveTime)
     }
 });
@@ -85,7 +85,7 @@ function startRecord() {
     } catch (e) {
         toastLog(e);
     }
-    mVirtualDisplay = mMediaProjection.createVirtualDisplay("免root屏幕录制", saveWidth, saveHeight, 1, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, mMediaRecorder.getSurface(), null, null);
+    mVirtualDisplay = mMediaProjection.createVirtualDisplay("系统屏幕录制", saveWidth, saveHeight, 1, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, mMediaRecorder.getSurface(), null, null);
     mMediaRecorder.start();
     isRunning = true;
     return true;

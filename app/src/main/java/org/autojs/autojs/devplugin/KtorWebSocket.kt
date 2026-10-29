@@ -40,6 +40,9 @@ class WebSocketServer {
     var pingInterval = 10000L
 
     private var engine: ApplicationEngine? = null
+
+    /** 由 Netty 事件循环线程写入、主线程读来做幂等启动判断，不加 volatile 会读到旧值导致重复 bind。 */
+    @Volatile
     var isActive: Boolean = false
         private set
 

@@ -268,3 +268,112 @@
   上传按钮/状态圆点/FAB/路径栏均完整，无横向溢出。
 - APK：`AutoX-suncV7-debug.apk`（arm64）、`AutoX-suncV7-x86_64-debug.apk`，
   已解包校验 assets/control.html 含新按钮。
+
+---
+
+## 十三、YOLO/ONNX 目标检测功能真机验证 + 类别名解析 bug 修复（2026-09-25）
+
+### 背景
+
+用户要求"看看 yolo 识别功能"，源码里有 sample 示例代码，使用 ax-mcp 技能在真机（米10至尊）上验证 YOLOv8 ONNX 检测端到端可用性。
+
+### YOLO 源码梳理
+
+- sample：`app/src/main/assets/sample/v6/onnx示例/`（检测.js、分类.js、yolo.yaml、说明.md、三个 Python 训练/导出脚本）
+- 实现：`autojs/src/main/java/com/stardust/autojs/onnx/`（OnnxModule / OnnxWrapper / OnnxDetector / OnnxClassifier / YoloV8PostProcessor / ImagePreprocessor）
+- JS API：`runtime.onnx`（ScriptRuntimeV2.kt 绑定），所有方法返回 JSON 字符串
+  - 检测：`loadDetectorAuto(name, path)` → `detectImageAuto(name, imageWrapper, conf=0.25, iou=0.45)`
+  - 调试：`getDetectorMetadata` / `debugDetectorOutput` / `getDetectorInputSizeInfo` 等
+- 检测管线：OnnxDetector.loadModelAuto → OnnxWrapper（读元数据 imgsz/names）→ ImagePreprocessor.preprocessSmart（letterbox，range 0-1）→ OnnxWrapper.run → YoloV8PostProcessor（依次尝试 transposed/84-dim/standard 三种格式，sigmoid + conf 过滤 + NMS）
+- box 坐标是模型输入尺寸（640）空间，非原图尺寸，调用方需自行逆 letterbox 映射
+
+### ax-mcp 真机环境
+
+- PC server.js 端口 29317，手机通过 `adb reverse tcp:29317 tcp:29317` 走 USB 隧道
+- bootstrap.js（CUSTOM_HOST=127.0.0.1）+ 无障碍机器人.js（MCP_HOST=127.0.0.1）推到 `/sdcard/脚本/`
+- 9317（app Ktor 服务）通过 `adb forward tcp:9317 tcp:9317` 访问，用于 run_path 启动 bootstrap
+- 注意：app 重启/插拔后 forward 和 reverse 都会丢失，需重设；设备 ID 每次重连会变
+
+### 模型
+
+- 用户提供 `/Users/apple/Downloads/yolov8n.onnx`（12.8MB，Ultralytics YOLOv8n COCO 80类，version 8.2.10）
+- 推送到手机 `/sdcard/脚本/yolov8n.onnx`
+- 元数据：imgsz=[640,640]，task=detect，stride=32，names 为 Python dict 格式 `{0: 'person', ..., 79: 'toothbrush'}`
+
+### 首次检测：4482 个退化框
+
+- 模型加载 4.8s，推理 2.7s，截图 1080x2340 成功
+- 但检测到 4482 个目标，框全是接近 0 的退化值（如 [0, 0.002, 0.00001, 0.002]），分数集中在 0.5，label 是 toaster/sink/hair drier 等 COCO 末类
+
+### 根因定位：parsePythonDict 多位数索引 bug
+
+- 元数据 `names` 是完整 80 类，但 `effective_class_count=10`，`effective_class_names` 恰好是 COCO 第 70-79 类
+- OnnxWrapper.parsePythonDict 用手写状态机解析：解析多位数索引（如 10）时，内层 while 吃掉第二位 `0`，但外层 for 循环索引未推进，下一轮又把 `0` 当成新的单位数索引处理，currentIndex 被覆盖为 0
+- 最终只有索引 0-9 存活，且按字典顺序 0→79 遍历时，70-79 类的第二位数字（0-9）最后写入，覆盖了 0-9 类的真实值
+- 类别数错为 10 后，后处理器按 4+10=14 维去解析实际 4+80=84 维的输出张量，坐标和分数全部错位，产生大量 sigmoid(≈0)=0.5 的退化框
+- 影响面：任何类别数 ≥10 且元数据 names 为 Python dict 格式的 YOLOv8 模型都会触发；JSON 数组格式和 ≤9 类的 dict 不受影响
+
+### 修复
+
+- `OnnxWrapper.kt` parsePythonDict 替换为正则实现：`Regex("""(\d+)\s*:\s*['"]([^'"]*)['"]""")` + sortedMap 按索引排序
+- 13 行新增，65 行删除
+- commit `6f3ba496`
+
+### 修复后验证
+
+- `effective_class_count=80`，80 类 COCO 全部正确解析（person → toothbrush）
+- 输出形状：705600 floats = 8400×84，转置格式 [1, 84, 8400]，process() 优先尝试转置格式并正确解析
+- 性能：模型加载 0.2s（热缓存），推理 0.19s（冷启动首次 2.7s）
+- 阈值扫描：conf=0.5 → 1167 个（sigmoid(0)=0.5 的噪声），conf≥0.6 → 41 个（score=1.0 的真实检测）
+- 测试图 ui3.png（Bililive-go App UI 截图，1080x2340）：conf=0.7 + 过滤 letterbox 填充区 → 6 个有效检测，框位置合理（围绕按钮/标签等 UI 元素），均为 COCO 模型对 UI 界面的误检（正常现象）
+- 逆 letterbox 映射：scale=0.274, padX=172.5, padY=0，框坐标正确映射回原图空间
+- 结果图 yolo_result2.png 正确渲染，红框+标签清晰
+
+### 使用建议
+
+- conf 阈值建议 ≥0.6（0.5 会保留大量 sigmoid(0) 噪声框）
+- box 坐标在 640×640 模型输入空间，需自行逆 letterbox 映射回原图：`scale=min(640/w,640/h)`，`padX=(640-w*scale)/2`，`origX=(boxX-padX)/scale`
+- letterbox 填充区会产生误检，建议过滤中心在填充区的框
+- UI 截图不是 COCO 模型的适用场景，自然场景图片检测效果会更好
+
+### 交付物
+
+- APK：`AutoX-suncV7-debug.apk`（arm64，含 6f3ba496 修复），已装机验证
+- 测试脚本：`/sdcard/脚本/yolo_test2.js`（含正确 letterbox 逆映射 + 填充区过滤）
+- 结果：`/sdcard/脚本/yolo_result2.json` / `yolo_result2.png`
+
+
+## 十四、独立包名 + vseven 显示名 + 浅绿大脑图标（2026-10-21）
+
+### 需求
+
+与原版共存的独立渠道包：applicationId 改 `com.taobao.vseven`、显示名 `vseven`、
+启动图标换候选 3（浅绿卡通大脑），gradle 正规 release + 现有 keystore 签名，不用 apktool。
+
+### 改动
+
+- `app/build.gradle.kts`（suncV7 flavor）：`applicationIdSuffix=".suncV7"` →
+  `applicationId="com.taobao.vseven"`；`appName` 占位符 `suncV7` → `vseven`。
+- Authority 无需手改：FileProvider `${applicationId}.fileprovider`、
+  `AppFileProvider.AUTHORITY = BuildConfig.APPLICATION_ID + ".fileprovider"`、
+  UriTool 用 context.packageName，全部自动跟随新包名 → `com.taobao.vseven.fileprovider`。
+- 图标（`app/src/suncV7/res/mipmap-*`，5 密度 × ic_launcher / ic_launcher_round /
+  ic_launcher_foreground）：从参考图 flood-fill + 最大连通域抠出大脑主体，自建浅绿渐变
+  面板（#d3ecce→#fafcfb）合成；legacy 圆角矩形、round 圆形、adaptive 前景芯片 84%。
+  尺寸沿用原规格 48/72/96/144/192，前景 108/162/216/324/432。
+- 新增 `app/src/suncV7/AndroidManifest.xml`：`tools:replace="android:roundIcon"`
+  把 roundIcon 从 main 的 `@drawable/autojs_logo` 改指 `@mipmap/ic_launcher_round`
+  （不加 tools:replace 会 manifest merge 冲突报错）。
+- `local.properties`：sdk.dir 原指向已不存在的 ~/.workbuddy 路径，改为 `/Users/apple/Android/Sdk`。
+
+### 验证
+
+- `:app:assembleSuncV7Release` 成功；apksigner v2/v3 通过（与旧 release 一致，v1=false 为 minSdk27 正常现象），
+  证书 CN=sunc-Q 现有 keystore。
+- aapt2 badging：package=`com.taobao.vseven`、label=`vseven`、roundIcon=mipmap、
+  authority=`com.taobao.vseven.fileprovider`；APK 内三档图标均为新大脑。
+- `:app:testSuncV7DebugUnitTest` 35 测试 0 失败。
+
+### 产物
+
+- `AutoX-vseven-arm64-release.apk` / `AutoX-vseven-x86_64-release.apk`（项目根目录）

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- goqi 渠道：圆形图标指向本渠道的圆形大脑图标（覆盖 main 的 @drawable/autojs_logo） -->
+    <application
+        android:roundIcon="@mipmap/ic_launcher_round"
+        tools:replace="android:roundIcon" />
+
+</manifest>

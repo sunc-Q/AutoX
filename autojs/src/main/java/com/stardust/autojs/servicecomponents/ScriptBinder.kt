@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.Log
+import com.google.gson.Gson
 import com.stardust.app.service.AbstractAutoService.Companion.stopAllServices
 import com.stardust.autojs.AutoJs
 import com.stardust.autojs.IndependentScriptService
@@ -19,6 +20,7 @@ import com.stardust.notification.NotificationListenerService
 import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
+import kotlin.system.exitProcess
 import java.lang.ref.WeakReference
 
 class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope) : Binder() {
@@ -39,6 +41,8 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
                     reply!!
                 )
 
+                Action.GET_ALL_LOGS.id -> getAllLogs(data, reply!!)
+
                 Action.BIND_SHIZUKU_SERVICE.id -> bindShizukuUserService()
                 Action.GET_MEMORY_INFO.id -> getMemoryInfo(reply!!)
                 else -> Log.w(TAG, "unknown action id = $code")
@@ -50,7 +54,16 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
     private fun appExit() {
         stopAllScript()
         stopAllServices()
-        //todo 应用退出的其它处理可在此添加
+        // 只停服务的话 :script 会空跑，无障碍服务还可能被系统重新拉起，所以让它自己退出。
+        // 这里不能用 scope：stopAllServices 触发 onDestroy 时已把它 cancel 掉了。
+        Thread {
+            try {
+                // 等一下让 onTransact 的 binder 回复发出去，否则调用侧收到 DeadObjectException
+                Thread.sleep(500)
+            } catch (_: InterruptedException) {
+            }
+            exitProcess(0)
+        }.start()
     }
 
     private fun getAllScriptTasks(data: Parcel, reply: Parcel) {
@@ -113,6 +126,18 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
             .observeOn(Schedulers.single()).subscribe(listener::onPrintln)
     }
 
+    /** 全局日志回放：远程控制台打开时看不到握手前的日志，历史只在 globalConsole.allLogs 里。 */
+    private fun getAllLogs(data: Parcel, reply: Parcel) {
+        val limit = data.readInt().coerceIn(1, 5000)
+        val console = AutoJs.instance.globalConsole
+        val logs = synchronized(console.allLogs) {
+            val size = console.allLogs.size
+            ArrayList(console.allLogs.subList(if (size > limit) size - limit else 0, size))
+        }
+        reply.writeNoException()
+        reply.writeString(GSON.toJson(logs))
+    }
+
     private fun notificationListenerServiceStatus(reply: Parcel) {
         reply.writeNoException()
         reply.writeInt(if (NotificationListenerService.instance != null) 1 else 0)
@@ -144,12 +169,14 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
         NOTIFICATION_LISTENER_SERVICE_STATUS(9),
         BIND_SHIZUKU_SERVICE(10),
         GET_MEMORY_INFO(11),
+        GET_ALL_LOGS(12),
         APP_EXIT(99);
     }
 
     companion object {
         const val TAG = "ScriptBinder"
         const val DESCRIPTOR = "com.stardust.autojs.servicecomponents.ScriptBinder"
+        private val GSON = Gson()
         suspend fun <T> connect(binder: IBinder, n: suspend TanBinder.() -> T): T {
             val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 Parcel.obtain(binder)
